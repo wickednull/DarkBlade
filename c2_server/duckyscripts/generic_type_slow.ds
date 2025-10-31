@@ -1,0 +1,6 @@
+REM Description: Slowly type lines
+DEFAULT_DELAY 200
+STRING This is typed slowly.
+ENTER
+STRING DuckyScript demo.
+ENTER

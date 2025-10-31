@@ -1,0 +1,5 @@
+REM Description: Open default browser to example.com
+GUI r
+DELAY 300
+STRING cmd /c start https://example.com
+ENTER

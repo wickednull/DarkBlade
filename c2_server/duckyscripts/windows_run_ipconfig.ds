@@ -1,0 +1,5 @@
+REM Description: Open Run and show ipconfig quickly (Windows)
+GUI r
+DELAY 300
+STRING cmd /k ipconfig
+ENTER

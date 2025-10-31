@@ -1,0 +1,474 @@
+================================================================================
+                        DarkSec NIGHTBLADE
+              USB Army Knife Exploitation Framework
+                     Complete Capabilities List
+================================================================================
+
+"The blade that cuts through digital darkness"
+From DarkSec Labs - Forging the future of offensive security
+
+================================================================================
+🎯 CORE FRAMEWORK CAPABILITIES
+================================================================================
+
+1. Firmware Management
+   • ESP32 device auto-detection
+   • One-click firmware installation
+   • Multiple chip support (ESP32, ESP32-S2, ESP32-S3, ESP32-C3)
+   • Custom baud rate configuration
+   • Full device erase options
+   • Prebuilt binary flashing
+   • Filesystem image upload
+   • Serial communication monitoring
+   • Real-time device logs
+
+2. DuckyScript Development
+   • Advanced script editor with syntax highlighting
+   • Multi-keyboard layout support (US, UK, DE, FR, ES, IT, etc.)
+   • Variable system for dynamic payloads
+   • Script templates and snippets
+   • Payload validation and testing
+   • Direct device deployment
+   • Script encryption/obfuscation
+   • HID injection commands
+   • Delay and timing controls
+
+3. Payload Library System
+   • Pre-built exploit collection
+   • Category organization:
+     - Information Gathering
+     - Persistence Mechanisms
+     - Data Exfiltration
+     - Credential Harvesting
+     - Network Operations
+     - Social Engineering
+     - Remote Access
+     - Privilege Escalation
+   • Search and filter functionality
+   • Custom payload import/export
+   • Payload modification and customization
+   • Version control for payloads
+
+4. Device Profile Management
+   • Multiple device configurations
+   • Saved settings per device
+   • Quick profile switching
+   • Hardware-specific optimizations
+   • Custom naming and organization
+   • Import/export profiles
+   • Backup and restore
+
+================================================================================
+🕸️ C2 SERVER (COMMAND & CONTROL)
+================================================================================
+
+Core C2 Features
+   • 25+ RESTful API endpoints
+   • SQLite database with 10 persistent tables
+   • SHA256 API key authentication
+   • Web-based dashboard interface
+   • Real-time beacon monitoring
+   • Multi-operator support
+   • Session management
+   • Audit logging
+
+Beacon Management
+   • Automatic beacon registration
+   • Real-time check-in system
+   • Beacon health monitoring
+   • Last-seen tracking
+   • Metadata collection (hostname, user, OS, IP)
+   • Beacon grouping and tagging
+   • Bulk beacon operations
+   • Beacon deactivation/cleanup
+
+Command & Control Operations
+   • Remote command execution
+   • Command queuing system
+   • Command history tracking
+   • Result collection and storage
+   • Bulk command distribution
+   • Scheduled command execution
+   • Command templates
+   • Interactive shell sessions
+
+--------------------------------------------------------------------------------
+ADVANCED C2 CAPABILITIES
+--------------------------------------------------------------------------------
+
+Screenshot Management
+   • Remote screenshot capture
+   • Base64 and file upload support
+   • Screenshot storage and organization
+   • Timeline view with timestamps
+   • Per-beacon screenshot history
+   • Thumbnail generation
+   • Batch screenshot downloads
+   • Screenshot comparison tools
+
+Keylogger Integration
+   • Real-time keystroke capture
+   • Window title tracking
+   • Application context logging
+   • Searchable keylog database
+   • Timeline visualization
+   • Keyword filtering
+   • Export capabilities
+   • Pattern detection
+
+Credential Harvesting
+   • Browser password extraction (Chrome, Firefox, Edge, etc.)
+   • Windows credential manager dumps
+   • SAM database extraction
+   • LSA secrets retrieval
+   • Cached credentials
+   • WiFi password recovery
+   • Application-specific credentials
+   • Organized storage by source
+   • Domain/username/password tracking
+   • Credential deduplication
+   • Export in multiple formats
+
+Process Management
+   • List running processes
+   • Kill processes by name or PID
+   • Start new processes
+   • Process monitoring and alerting
+   • Resource usage tracking
+   • Process tree visualization
+   • Suspicious process detection
+
+File Operations
+   • Remote file browser
+   • Directory listing
+   • File upload to target
+   • File download from target
+   • File deletion
+   • File execution
+   • Permission modification
+   • Search functionality
+   • Batch file operations
+   • Archive creation/extraction
+
+Persistence Management
+   • Registry persistence
+     - HKCU/HKLM Run keys
+     - StartupFolder entries
+     - Scheduled tasks
+   • Service installation
+     - Windows services
+     - Linux systemd services
+     - macOS LaunchAgents/LaunchDaemons
+   • Scheduled task persistence
+     - Windows Task Scheduler
+     - Linux cron jobs
+     - macOS launchd
+   • Startup folder persistence
+   • Persistence verification
+   • Removal capabilities
+   • Health monitoring
+
+Network Reconnaissance
+   • Network range scanning
+   • Port scanning (TCP/UDP)
+   • Service enumeration
+   • ARP discovery
+   • DNS enumeration
+   • SNMP discovery
+   • Network mapping
+   • Route discovery
+   • Active host detection
+
+Task Scheduling
+   • Time-based task execution
+   • Recurring task support
+   • Task priority system
+   • Scheduled screenshots
+   • Scheduled credential dumps
+   • Scheduled network scans
+   • Task result collection
+   • Task cancellation
+
+Data Exfiltration
+   • Organized file storage
+   • Metadata tracking
+   • Compression support (gzip)
+   • Encryption options
+   • Bandwidth throttling
+   • Chunked transfers
+   • Resume capability
+   • Exfiltration logs
+
+Session Management
+   • Interactive shell sessions
+   • Multiple session types (cmd, powershell, bash, etc.)
+   • Session persistence
+   • Session hijacking
+   • Input/output logging
+   • Session recording
+
+================================================================================
+🌐 NETWORK ATTACK MODULES
+================================================================================
+
+WiFi Attacks
+   • WiFi network scanning
+   • Access point enumeration
+   • Deauthentication attacks
+   • Evil twin AP creation
+   • WPA/WPA2 handshake capture
+   • WPS attacks
+   • Client disconnection
+   • Rogue AP deployment
+   • Captive portal creation
+   • WiFi jamming
+
+Bluetooth Attacks
+   • BLE device scanning
+   • Device enumeration
+   • GATT service discovery
+   • Characteristic reading/writing
+   • Bluetooth spoofing
+   • Device tracking
+   • Proximity detection
+   • BLE packet sniffing
+
+Network Reconnaissance
+   • Active host discovery
+   • Port scanning
+   • Service fingerprinting
+   • OS detection
+   • Vulnerability scanning
+   • Banner grabbing
+   • SNMP enumeration
+   • Network topology mapping
+
+================================================================================
+🎭 ADVANCED ATTACK FEATURES
+================================================================================
+
+Obfuscation Engine
+   • Payload encryption
+   • String obfuscation
+   • Code morphing
+   • Anti-analysis techniques
+   • VM detection evasion
+   • Sandbox evasion
+   • Debugger detection
+   • Dynamic code generation
+
+Social Engineering Tools
+   • Phishing page generation
+   • Credential harvesting pages
+   • Fake login portals
+   • QR code generation
+   • Malicious document creation
+   • Pretexting scenarios
+   • Social media integration
+   • Email template generation
+
+Post-Exploitation
+   • Privilege escalation exploits
+   • Token manipulation
+   • Process injection
+   • DLL hijacking
+   • Registry manipulation
+   • Service exploitation
+   • Kernel exploits
+   • UAC bypass techniques
+   • Lateral movement tools
+
+================================================================================
+🎨 GUI & USER INTERFACE
+================================================================================
+
+Dashboard & Analytics
+   • Real-time operation overview
+   • Beacon status visualization
+   • Command execution statistics
+   • Success/failure metrics
+   • Timeline views
+   • Geographic mapping
+   • Quick action buttons
+   • Recent activity feed
+   • System health monitoring
+   • Resource usage graphs
+
+Interface Tabs (17 Specialized Modules)
+   1.  🏠 Welcome - Setup and initialization
+   2.  ⚡ Flasher - Firmware management
+   3.  🔧 eFuse - ESP32 chip configuration
+   4.  🤖 Agent - Autonomous operation modes
+   5.  📝 DuckyScript - Payload editor
+   6.  📚 Library - Payload collection
+   7.  📟 Serial Monitor - Device communication
+   8.  👤 Profiles - Device configurations
+   9.  🎭 Orchestration - Multi-stage attacks
+   10. 🕸️ C2 Server - Command & control
+   11. 📡 WiFi Attacks - Wireless exploitation
+   12. 📶 Bluetooth - BLE attacks
+   13. 🎭 Obfuscation - Payload protection
+   14. 🎣 Social Engineering - Pretexting
+   15. 🌐 Network Recon - Discovery
+   16. 💀 Post-Exploit - Advanced techniques
+   17. 📊 Dashboard - Operations overview
+
+================================================================================
+🔧 TECHNICAL CAPABILITIES
+================================================================================
+
+Database System
+   • 10 persistent tables:
+     a. beacons - Beacon tracking
+     b. commands - Command queue
+     c. exfil_data - Exfiltrated files
+     d. screenshots - Screenshot storage
+     e. keylogs - Keystroke logs
+     f. credentials - Harvested credentials
+     g. sessions - Interactive sessions
+     h. tasks - Scheduled operations
+     i. api_keys - Authentication
+     j. files - File browser cache
+
+API System
+   • 25+ RESTful endpoints:
+     - Beacon registration & check-in
+     - Command execution & results
+     - Screenshot upload & retrieval
+     - Keylog data submission
+     - Credential harvesting
+     - Process management
+     - File operations
+     - Persistence management
+     - Network operations
+     - Task scheduling
+     - Session management
+     - Bulk operations
+     - Data exfiltration
+
+Security Features
+   • SHA256 API key authentication
+   • Encrypted data storage options
+   • Secure credential handling
+   • Token-based session management
+   • Audit logging
+   • Access control
+   • Rate limiting
+   • Input validation
+   • SQL injection prevention
+
+Multi-Platform Support
+   • Windows (7, 8, 10, 11, Server)
+   • Linux (Ubuntu, Debian, Kali, Red Hat, etc.)
+   • macOS (10.x, 11.x, 12.x+)
+   • Cross-platform beacon compatibility
+   • Platform-specific exploits
+   • Adaptive payload generation
+
+================================================================================
+🚀 AUTOMATION & ORCHESTRATION
+================================================================================
+
+Attack Orchestration
+   • Multi-stage attack chaining
+   • Conditional execution
+   • Event-driven triggers
+   • Attack sequencing
+   • Payload coordination
+   • Timing controls
+   • Retry mechanisms
+   • Fallback strategies
+
+Autonomous Modes
+   • Self-guided operations
+   • Automatic target selection
+   • Adaptive attack patterns
+   • Machine learning integration
+   • Behavioral analysis
+   • Self-optimization
+   • Automatic reporting
+
+================================================================================
+📊 REPORTING & ANALYTICS
+================================================================================
+
+Report Generation
+   • Executive summaries
+   • Technical details
+   • Timeline reports
+   • Credential reports
+   • Screenshot galleries
+   • Network maps
+   • Attack chains
+   • Export formats (PDF, HTML, JSON, CSV)
+
+Analytics
+   • Success rate tracking
+   • Target profiling
+   • Attack effectiveness
+   • Resource utilization
+   • Geographic distribution
+   • Time-based analysis
+   • Trend identification
+
+================================================================================
+🔐 OPSEC FEATURES
+================================================================================
+
+   • Beacon jitter for evasion
+   • Domain fronting support
+   • Traffic encryption (HTTPS/TLS)
+   • C2 channel obfuscation
+   • Anti-forensics capabilities
+   • Secure data deletion
+   • Log sanitization
+   • Fingerprint randomization
+   • Process hiding
+   • Network traffic masking
+
+================================================================================
+💻 DEVELOPMENT FEATURES
+================================================================================
+
+Extensibility
+   • Plugin architecture
+   • Module system
+   • Custom endpoint creation
+   • Payload development SDK
+   • API documentation
+   • Code examples
+   • Developer tools
+
+Integration
+   • REST API for external tools
+   • Webhook support
+   • Event notifications
+   • Third-party tool integration
+   • Script automation
+   • CI/CD pipeline support
+
+================================================================================
+📦 TOTAL CAPABILITY COUNT
+================================================================================
+
+   • 25+ API endpoints
+   • 17 specialized GUI tabs
+   • 10 database tables
+   • 15+ attack categories
+   • 100+ individual features
+   • Multi-platform support
+   • Enterprise-grade architecture
+
+================================================================================
+
+⚔️ DarkSec NIGHTBLADE - The most comprehensive USB exploitation framework ⚔️
+
+From DarkSec Labs - Forging the future of offensive security
+
+Version: 2.0
+Status: Production Ready
+Date: 2025-10-31
+
+================================================================================
+                            END OF CAPABILITIES LIST
+================================================================================

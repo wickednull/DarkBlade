@@ -1,0 +1,7 @@
+{
+  "name": "Network Scan",
+  "category": "Recon",
+  "os": "Windows",
+  "description": "Scan network configuration",
+  "script": "REM Network Scan\nGUI r\nDELAY 500\nSTRING cmd /c ipconfig /all > %temp%\\\\netinfo.txt\nENTER\n"
+}

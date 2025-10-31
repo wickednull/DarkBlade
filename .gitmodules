@@ -1,0 +1,3 @@
+[submodule "USBArmyKnife"]
+	path = USBArmyKnife
+	url = https://github.com/wickednull/USBArmyKnife.git

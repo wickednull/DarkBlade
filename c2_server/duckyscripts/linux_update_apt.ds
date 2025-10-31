@@ -1,0 +1,5 @@
+REM Description: Update apt cache (Linux)
+CTRL ALT t
+DELAY 700
+STRING sudo apt update
+ENTER

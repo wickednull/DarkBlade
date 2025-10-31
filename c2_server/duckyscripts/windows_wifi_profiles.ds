@@ -1,0 +1,5 @@
+REM Description: Show Wi-Fi profiles
+GUI r
+DELAY 300
+STRING cmd /k netsh wlan show profiles
+ENTER

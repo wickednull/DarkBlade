@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.env
+.venv/
+
+# Editor
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.backup_*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# USBArmyKnife specific ignores
+/USBArmyKnife/.git/
+/USBArmyKnife/.github/
+/USBArmyKnife/.vscode/
+/USBArmyKnife/data/
+/USBArmyKnife/docs/
+/USBArmyKnife/examples/
+/USBArmyKnife/include/
+/USBArmyKnife/lib/
+/USBArmyKnife/src/
+/USBArmyKnife/test/
+/USBArmyKnife/tools/
+/USBArmyKnife/ui/

