@@ -46,3 +46,6 @@ Thumbs.db
 /USBArmyKnife/test/
 /USBArmyKnife/tools/
 /USBArmyKnife/ui/
+
+# Ignore agent.img
+agent.img
