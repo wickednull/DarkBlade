@@ -39,6 +39,8 @@
 
 **DarkSec NIGHTBLADE** is an advanced USB Army Knife flasher and exploitation framework designed for professional penetration testers and red team operators. Combining enterprise-grade command & control infrastructure with sophisticated attack capabilities, NIGHTBLADE represents the cutting edge of USB-based offensive security tools.
 
+--IMPORTANT!-- I have only tested this on the Lilygo T-Dongle ESP32 S3.
+
 ### Key Features
 
 #### Core C2 Infrastructure
