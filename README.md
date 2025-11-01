@@ -1,3 +1,4 @@
+![Uploading image.jpeg…]()
 # DarkSec NIGHTBLADE
 
 ```
