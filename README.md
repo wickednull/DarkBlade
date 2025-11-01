@@ -1,4 +1,5 @@
-![Uploading image.jpeg…]()
+![image](https://github.com/user-attachments/assets/089dd9b5-b5d6-411c-ada8-0d9edee318ec)
+
 # DarkSec NIGHTBLADE
 
 ```
