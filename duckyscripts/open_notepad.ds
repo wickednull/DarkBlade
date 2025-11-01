@@ -1,0 +1,5 @@
+REM Open Notepad
+GUI r
+DELAY 500
+STRING notepad
+ENTER

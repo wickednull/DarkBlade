@@ -1,0 +1,10 @@
+REM UAC Bypass (prompt elevates)
+
+GUI r
+
+DELAY 500
+
+STRING powershell Start-Process cmd -Verb runAs
+
+ENTER
+

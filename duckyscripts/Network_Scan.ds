@@ -1,0 +1,10 @@
+REM Network Scan
+
+GUI r
+
+DELAY 500
+
+STRING cmd /c ipconfig /all > %temp%\netinfo.txt
+
+ENTER
+

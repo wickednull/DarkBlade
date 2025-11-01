@@ -1,0 +1,8 @@
+REM Description: Open Safari and go to example.com (macOS)
+GUI SPACE
+DELAY 300
+STRING safari
+ENTER
+DELAY 800
+STRING https://example.com
+ENTER

@@ -1,0 +1,5 @@
+REM Description: Open Windows Calculator
+GUI r
+DELAY 300
+STRING calc
+ENTER

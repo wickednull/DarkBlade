@@ -1,0 +1,7 @@
+{
+  "name": "Registry Persistence",
+  "category": "Persistence",
+  "os": "Windows",
+  "description": "Add registry run key",
+  "script": "REM Registry Persistence\nGUI r\nDELAY 500\nSTRING cmd /c reg add HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\nENTER\n"
+}

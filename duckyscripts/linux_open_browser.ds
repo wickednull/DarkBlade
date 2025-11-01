@@ -1,0 +1,5 @@
+REM Description: Open default browser to example.com (Linux)
+CTRL ALT t
+DELAY 700
+STRING xdg-open https://example.com
+ENTER

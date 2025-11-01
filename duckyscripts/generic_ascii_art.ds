@@ -1,0 +1,7 @@
+REM Description: Type a simple ASCII art banner
+STRING +----------+
+ENTER
+STRING | Hello!  |
+ENTER
+STRING +----------+
+ENTER

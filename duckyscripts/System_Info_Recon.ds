@@ -1,0 +1,10 @@
+REM System Info Collection
+
+GUI r
+
+DELAY 500
+
+STRING cmd /c systeminfo > %temp%\sysinfo.txt
+
+ENTER
+

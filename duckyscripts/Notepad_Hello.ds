@@ -1,0 +1,14 @@
+REM Description: Open Notepad and type greeting
+
+GUI r
+
+DELAY 500
+
+STRING notepad
+
+ENTER
+
+DELAY 500
+
+STRING Hello, World!
+

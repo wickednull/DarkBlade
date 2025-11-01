@@ -1,0 +1,5 @@
+REM Description: Open a terminal and echo a message (Linux)
+CTRL ALT t
+DELAY 700
+STRING echo 'USBArmyKnife ready!'
+ENTER

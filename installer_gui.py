@@ -5,6 +5,7 @@ import tkinter as tkcore
 from tkinter import Listbox
 
 import subprocess
+import sys
 import threading
 import serial
 import serial.tools.list_ports
@@ -32,6 +33,25 @@ except ImportError:
 import pickle
 
 from c2_server import duckyscript_converter
+
+# Ensure tkinter geometry/state constants are available on ttkbootstrap alias `tk`
+# Google Gemini edits changed imports to `import ttkbootstrap as tk`, but ttkbootstrap
+# doesn't export tkinter constants like X, BOTH, LEFT, etc. This shim maps them over.
+try:
+    _TK_CONSTS = (
+        "X","Y","BOTH","LEFT","RIGHT","TOP","BOTTOM",
+        "N","S","E","W","NW","NE","SW","SE","NS","EW","NSEW",
+        "DISABLED","NORMAL","END","WORD","NONE","VERTICAL","HORIZONTAL",
+        "SUNKEN","RAISED","FLAT","GROOVE","RIDGE","SOLID","CENTER","ACTIVE","INSERT"
+    )
+    for _name in _TK_CONSTS:
+        if hasattr(tkcore, _name) and not hasattr(tk, _name):
+            setattr(tk, _name, getattr(tkcore, _name))
+    # Alias common widget naming differences
+    if hasattr(tk, 'Labelframe') and not hasattr(tk, 'LabelFrame'):
+        tk.LabelFrame = tk.Labelframe
+except Exception:
+    pass
 
 class USBArmyKnifeInstaller(tk.Window):
     def __init__(self):
@@ -73,7 +93,14 @@ class USBArmyKnifeInstaller(tk.Window):
         self.create_network_recon_tab()
         self.create_postexploit_tab()
         self.create_dashboard_tab()
-
+        
+        # Global scroll routing for wheel/touchpad across tabs
+        try:
+            self._active_scroll_canvas = None
+            self._ensure_global_scroll_bindings()
+        except Exception:
+            pass
+        
         # Enable copy/paste everywhere
         try:
             self._install_clipboard_support()
@@ -580,29 +607,44 @@ endif
 
 
     def load_duckyscript_library(self):
+        """Load scripts from duckyscripts/ and c2_server/duckyscripts, ensuring unique content"""
         self._library_cache = []
         self.library_tree.delete(*self.library_tree.get_children())
-        script_dir = "duckyscripts"
-        if os.path.exists(script_dir):
-            for filename in os.listdir(script_dir):
-                if filename.endswith(".ds"):
-                    filepath = os.path.join(script_dir, filename)
-                    description = filename
-                    try:
-                        with open(filepath, "r", errors="ignore") as f:
-                            header = [f.readline().strip() for _ in range(5)]
-                        for line in header:
-                            if line.startswith("REM "):
-                                txt = line[4:].strip()
-                                if txt.lower().startswith("description:"):
-                                    description = txt.split(":",1)[1].strip()
-                                    break
-                                else:
-                                    description = txt
-                    except Exception:
-                        pass
-                    self._library_cache.append((description, filepath))
-                    self.library_tree.insert("", tk.END, values=(description, filepath))
+        sources = ["duckyscripts", os.path.join("c2_server", "duckyscripts")]
+        seen_hashes = set()
+        def normalize(text: str) -> str:
+            text = text.replace("\r\n", "\n").replace("\r", "\n")
+            return "\n".join(line.rstrip() for line in text.splitlines())
+        for script_dir in sources:
+            if not os.path.exists(script_dir):
+                continue
+            for filename in sorted(os.listdir(script_dir)):
+                if not filename.endswith(".ds"):
+                    continue
+                filepath = os.path.join(script_dir, filename)
+                description = filename
+                try:
+                    with open(filepath, "r", errors="ignore") as f:
+                        content = f.read()
+                    # Uniqueness by normalized content hash
+                    h = hashlib.sha256(normalize(content).encode("utf-8", errors="ignore")).hexdigest()
+                    if h in seen_hashes:
+                        continue
+                    seen_hashes.add(h)
+                    # Pull description from first REM lines if present
+                    header_lines = content.splitlines()[:5]
+                    for line in header_lines:
+                        if line.strip().upper().startswith("REM "):
+                            txt = line.strip()[4:].strip()
+                            if txt.lower().startswith("description:"):
+                                description = txt.split(":", 1)[1].strip()
+                                break
+                            elif txt:
+                                description = txt
+                except Exception:
+                    pass
+                self._library_cache.append((description, filepath))
+                self.library_tree.insert("", tk.END, values=(description, filepath))
 
     def on_library_select(self, event):
         selected_item = self.library_tree.focus()
@@ -1447,6 +1489,134 @@ endif
                 "4) On some systems, install usb serial drivers or ensure ModemManager is not interfering.\n"
             )
             messagebox.showinfo("Connection Help", txt)
+        except Exception:
+            pass
+
+    def _make_scrollable(self, parent):
+        """Create a vertical scrollable area inside parent.
+        Returns (container_frame, canvas, inner_frame).
+        """
+        container = tk.Frame(parent)
+        canvas = tkcore.Canvas(container, highlightthickness=0)
+        scrollbar = tk.Scrollbar(container, orient=tk.VERTICAL, command=canvas.yview)
+        inner = tk.Frame(canvas)
+        
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        win_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        def _resize(event):
+            try:
+                canvas.itemconfig(win_id, width=event.width)
+            except Exception:
+                pass
+        canvas.bind("<Configure>", _resize)
+        
+        # Remember this canvas as active when hovered for global scroll routing
+        def _focus_scroll(_):
+            try:
+                self._active_scroll_canvas = canvas
+            except Exception:
+                pass
+        for w in (container, canvas, inner):
+            try:
+                w.bind("<Enter>", _focus_scroll)
+            except Exception:
+                pass
+        
+        # Local smooth scrolling support (fallback)
+        def _wheel(event):
+            try:
+                delta = getattr(event, 'delta', 0)
+                if delta:
+                    steps = int(-delta/120) or (-1 if delta>0 else 1)
+                    canvas.yview_scroll(steps, "units")
+            except Exception:
+                pass
+        def _linux_scroll(event):
+            try:
+                if event.num == 4:
+                    canvas.yview_scroll(-3, "units")
+                elif event.num == 5:
+                    canvas.yview_scroll(3, "units")
+            except Exception:
+                pass
+        for w in (container, canvas, inner):
+            try:
+                w.bind("<MouseWheel>", _wheel)
+                w.bind("<Button-4>", _linux_scroll)
+                w.bind("<Button-5>", _linux_scroll)
+            except Exception:
+                pass
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        return container, canvas, inner
+
+    def _ensure_global_scroll_bindings(self):
+        """Bind global wheel/touchpad keys and route to the scrollable Canvas under cursor.
+        Falls back to the last active scroll canvas.
+        """
+        def _canvas_under_cursor():
+            try:
+                x, y = self.winfo_pointerxy()
+                w = self.winfo_containing(x, y)
+                while w is not None and not isinstance(w, tkcore.Canvas):
+                    w = getattr(w, 'master', None)
+                return w
+            except Exception:
+                return None
+        def _target_canvas():
+            cv = _canvas_under_cursor()
+            if cv is None:
+                cv = getattr(self, '_active_scroll_canvas', None)
+            return cv
+        def _route_wheel(event):
+            try:
+                cv = _target_canvas()
+                if cv is None:
+                    return
+                delta = getattr(event, 'delta', 0)
+                if delta:
+                    steps = int(-delta/120) or (-1 if delta>0 else 1)
+                    cv.yview_scroll(steps, 'units')
+            except Exception:
+                pass
+        def _route_linux(event):
+            try:
+                cv = _target_canvas()
+                if cv is None:
+                    return
+                if event.num == 4:
+                    cv.yview_scroll(-3, 'units')
+                elif event.num == 5:
+                    cv.yview_scroll(3, 'units')
+            except Exception:
+                pass
+        def _route_keys(event):
+            try:
+                cv = _target_canvas()
+                if cv is None:
+                    return
+                key = event.keysym
+                if key == 'Up':
+                    cv.yview_scroll(-1, 'units')
+                elif key == 'Down':
+                    cv.yview_scroll(1, 'units')
+                elif key in ('Prior', 'Page_Up'):
+                    cv.yview_scroll(-1, 'pages')
+                elif key in ('Next', 'Page_Down'):
+                    cv.yview_scroll(1, 'pages')
+            except Exception:
+                pass
+        try:
+            self.bind_all('<MouseWheel>', _route_wheel)
+            self.bind_all('<Button-4>', _route_linux)
+            self.bind_all('<Button-5>', _route_linux)
+            self.bind_all('<Up>', _route_keys)
+            self.bind_all('<Down>', _route_keys)
+            self.bind_all('<Prior>', _route_keys)
+            self.bind_all('<Next>', _route_keys)
         except Exception:
             pass
 
@@ -3065,7 +3235,7 @@ endif
         
         tk.Label(darksec_frame, text="C2 Server Path:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         self.c2_server_path = tk.Entry(darksec_frame, width=40)
-        self.c2_server_path.insert(0, "./c2_server.py")
+        self.c2_server_path.insert(0, "./c2_server/c2_server.py")
         self.c2_server_path.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
         tk.Button(darksec_frame, text="Browse", command=self.browse_c2_server_path).grid(row=0, column=2, padx=5, pady=5)
         
@@ -3117,22 +3287,28 @@ endif
         """Start simple standalone C2 server using custom c2_server.py"""
         port = self.c2_port.get()
         
-        # Check if c2_server.py exists
-        c2_server_path = os.path.join(os.path.dirname(__file__), "c2_server.py")
-        if not os.path.exists(c2_server_path):
-            messagebox.showerror("Error", "c2_server.py not found in application directory")
+        # Resolve C2 server path (prefer entry field, fallback to default)
+        candidate = self.c2_server_path.get().strip() if hasattr(self, 'c2_server_path') else ""
+        if not candidate:
+            candidate = os.path.join(os.path.dirname(__file__), "c2_server", "c2_server.py")
+        if not os.path.isabs(candidate):
+            candidate = os.path.abspath(candidate)
+        if not os.path.exists(candidate):
+            messagebox.showerror("Error", f"C2 server not found at: {candidate}")
             return
         
         try:
             # Create a launcher script that imports and runs the C2 server
             launcher_script = f'''#!/usr/bin/env python3
-import sys
-sys.path.insert(0, "{os.path.dirname(__file__)}")
+import os, sys
+base_dir = os.path.abspath(os.path.dirname(__file__))
+sys.path.insert(0, base_dir)
+sys.path.insert(0, os.path.join(base_dir, 'c2_server'))
 
-from c2_server import C2Server
+from c2_server.c2_server import C2Server
 
 if __name__ == "__main__":
-    server = C2Server(host="0.0.0.0", port={port})
+    server = C2Server(host="0.0.0.0", port={port}, use_ssl=False, use_ngrok={bool(self.c2_use_ngrok.get())}, ngrok_token={repr(self.c2_ngrok_token.get().strip()) if hasattr(self, 'c2_ngrok_token') else 'None'})
     server.run()
 '''
             
@@ -3143,9 +3319,9 @@ if __name__ == "__main__":
             
             # Start the C2 server process
             self.c2_server_process = subprocess.Popen(
-                ["python", launcher_file],
+                [sys.executable, launcher_file],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True
             )
             
@@ -3284,13 +3460,18 @@ if __name__ == "__main__":
             # Update tree
             self.beacons_tree.delete(*self.beacons_tree.get_children())
             for beacon in beacons:
-                self.beacons_tree.insert("", tk.END, values=(
-                    beacon.get("hostname", "N/A"),
-                    beacon.get("username", "N/A"),
-                    beacon.get("os", "N/A"),
-                    beacon.get("ip", "N/A"),
-                    beacon.get("last_seen", "N/A")
-                ))
+                self.beacons_tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        beacon.get("hostname", "N/A"),
+                        beacon.get("username", "N/A"),
+                        beacon.get("os", "N/A"),
+                        beacon.get("ip", "N/A"),
+                        beacon.get("last_seen", "N/A")
+                    ),
+                    tags=(beacon.get("id", ""),)
+                )
             
             self.c2_beacon_count.config(text=str(len(beacons)))
         except Exception as e:
@@ -3307,8 +3488,13 @@ if __name__ == "__main__":
         if not command:
             return
         
-        item = self.beacons_tree.item(selection[0])
-        hostname = item['values'][0]
+        item_id = selection[0]
+        item = self.beacons_tree.item(item_id)
+        tags = item.get('tags') or []
+        beacon_id = tags[0] if tags else None
+        if not beacon_id:
+            messagebox.showerror("Error", "Selected row has no beacon ID; try Refresh Beacons")
+            return
         
         try:
             import requests
@@ -3320,7 +3506,7 @@ if __name__ == "__main__":
                 headers['X-API-Key'] = self.c2_api_key
             
             resp = requests.post(
-                f"{url}/api/beacon/{hostname}/command", 
+                f"{url}/api/beacon/{beacon_id}/command", 
                 json={"command": command}, 
                 headers=headers,
                 timeout=5
@@ -3330,7 +3516,8 @@ if __name__ == "__main__":
                 messagebox.showerror("Error", "Unauthorized - API key required or invalid")
                 return
             
-            messagebox.showinfo("Sent", f"Command sent to {hostname}")
+            host_label = item['values'][0] if item.get('values') else beacon_id
+            messagebox.showinfo("Sent", f"Command sent to {host_label}")
             self.c2_command.delete(0, tk.END)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to send command: {e}")
@@ -3494,12 +3681,16 @@ ENTER
         wizard.geometry("700x600")
         
         # Title
-        title_frame = tk.Frame(wizard, bg="#ff0000", height=60)
+        try:
+            wizard.configure(bg="#000000")
+        except Exception:
+            pass
+        title_frame = tkcore.Frame(wizard, bg="#ff0000", height=60)
         title_frame.pack(fill=tk.X)
         title_frame.pack_propagate(False)
         
-        tk.Label(title_frame, text="🚀 C2 Deployment Wizard", 
-                font=("Arial", 16, "bold"), bg="#ff0000", fg="#000000").pack(expand=True)
+        tkcore.Label(title_frame, text="🚀 C2 Deployment Wizard", 
+                font=("Arial", 16, "bold"), bg="#ff0000", fg="#000000").pack(expand=True, fill=tk.BOTH)
         
         # Content area
         content = tk.Frame(wizard, padding=20)
@@ -3517,7 +3708,7 @@ ENTER
         # Instructions
         instructions = scrolledtext.ScrolledText(content, height=20, wrap=tk.WORD, 
                                                 bg="#0a0a0a", fg="#00ff00",
-                                                font=("Courier", 10))
+                                                font=("Courier", 10), insertbackground="#00ff00")
         instructions.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
         guide_text = f'''USB ARMY KNIFE C2 DEPLOYMENT GUIDE
@@ -3662,6 +3853,10 @@ ENTER
                  command=lambda: webbrowser.open("http://4.3.2.1:8080")).pack(side=tk.LEFT, padx=5)
         
         tk.Button(btn_frame, text="Close", command=wizard.destroy).pack(side=tk.RIGHT, padx=5)
+        try:
+            wizard.lift(); wizard.focus_force()
+        except Exception:
+            pass
     
     # WiFi Attack Panel
     def create_wifi_attack_tab(self):
@@ -3686,6 +3881,10 @@ ENTER
         
         self.wifi_status = tk.Label(status_frame, text="❌ Not Connected", foreground="#ff0000", font=("Arial", 10, "bold"))
         self.wifi_status.pack(pady=5)
+        
+        # Scroll container for lower WiFi sections
+        wifi_scroll_container, _, wifi_scroll_inner = self._make_scrollable(wifi_frame)
+        wifi_scroll_container.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
         # Attack types
         attacks_frame = tk.LabelFrame(wifi_frame, text="Attack Types", padding=15)
@@ -3753,7 +3952,7 @@ ENTER
         settings.columnconfigure(1, weight=1)
         
         # Output console
-        console_frame = tk.LabelFrame(wifi_frame, text="Attack Output", padding=10)
+        console_frame = tk.LabelFrame(wifi_scroll_inner, text="Attack Output", padding=10)
         console_frame.pack(fill=tk.BOTH, expand=True)
         
         self.wifi_output = scrolledtext.ScrolledText(console_frame, height=10, bg="#0a0a0a", fg="#00ff00",
@@ -3761,7 +3960,7 @@ ENTER
         self.wifi_output.pack(fill=tk.BOTH, expand=True)
         
         # Control buttons
-        ctrl_frame = tk.Frame(wifi_frame)
+        ctrl_frame = tk.Frame(wifi_scroll_inner)
         ctrl_frame.pack(fill=tk.X, pady=(10, 0))
         
         tk.Button(ctrl_frame, text="⏹️ Stop Attack", command=self.stop_wifi_attack).pack(side=tk.LEFT, padx=5)
@@ -4108,9 +4307,89 @@ REM Access at http://4.3.2.1/evilportal
         tk.Button(device_actions, text="🔗 Pair", command=self.pair_bt_device).pack(side=tk.LEFT, padx=5)
         tk.Button(device_actions, text="🎯 Set Target", command=self.set_bt_target).pack(side=tk.LEFT, padx=5)
         
-        # Attack types
-        attacks_frame = tk.LabelFrame(left_panel, text="Attack Vectors", padding=10)
-        attacks_frame.pack(fill=tk.X)
+        # Attack types (scrollable)
+        wifi_scroll_container, _, wifi_scroll_inner = self._make_scrollable(left_panel)
+        wifi_scroll_container.pack(fill=tk.BOTH, expand=True)
+        attacks_frame = tk.LabelFrame(wifi_scroll_inner, text="Attack Vectors", padding=10)
+        attacks_frame.pack(fill=tk.BOTH, expand=True)
+        
+        attacks_canvas = tkcore.Canvas(attacks_frame, highlightthickness=0)
+        attacks_canvas.configure(takefocus=1)
+        attacks_scrollbar = tk.Scrollbar(attacks_frame, orient=tk.VERTICAL, command=attacks_canvas.yview)
+        attacks_inner = tk.Frame(attacks_canvas)
+        
+        attacks_inner.bind(
+            "<Configure>",
+            lambda e: attacks_canvas.configure(scrollregion=attacks_canvas.bbox("all"))
+        )
+        
+        attacks_window = attacks_canvas.create_window((0, 0), window=attacks_inner, anchor="nw")
+        attacks_canvas.configure(yscrollcommand=attacks_scrollbar.set)
+        attacks_canvas.configure(yscrollincrement=20)
+        
+        def _resize_canvas(event):
+            try:
+                attacks_canvas.itemconfig(attacks_window, width=event.width)
+            except Exception:
+                pass
+        attacks_canvas.bind("<Configure>", _resize_canvas)
+        
+        # Smooth scrolling: mouse wheel bindings (Windows/Mac) and Button-4/5 (Linux)
+        def _on_mousewheel(event):
+            try:
+                delta = event.delta if hasattr(event, 'delta') else 0
+                if delta:
+                    steps = int(-delta/120) or (-1 if delta>0 else 1)
+                    attacks_canvas.yview_scroll(steps, "units")
+            except Exception:
+                pass
+        def _on_linux_scroll(event):
+            try:
+                if event.num == 4:
+                    attacks_canvas.yview_scroll(-3, "units")
+                elif event.num == 5:
+                    attacks_canvas.yview_scroll(3, "units")
+            except Exception:
+                pass
+        # Focus canvas when pointer enters so wheel events target it
+        def _focus_canvas(_):
+            try:
+                attacks_canvas.focus_set()
+            except Exception:
+                pass
+        for w in (attacks_canvas, attacks_inner, attacks_frame):
+            try:
+                w.bind("<Enter>", _focus_canvas)
+            except Exception:
+                pass
+        # Bind globally so two-finger gestures on touchpads work even over child widgets
+        try:
+            attacks_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            attacks_canvas.bind_all("<Button-4>", _on_linux_scroll)
+            attacks_canvas.bind_all("<Button-5>", _on_linux_scroll)
+        except Exception:
+            pass
+        # Keyboard scrolling as fallback
+        def _on_key(event):
+            key = event.keysym
+            if key in ("Up",):
+                attacks_canvas.yview_scroll(-1, "units")
+            elif key in ("Down",):
+                attacks_canvas.yview_scroll(1, "units")
+            elif key in ("Prior",):  # PageUp
+                attacks_canvas.yview_scroll(-1, "pages")
+            elif key in ("Next",):   # PageDown
+                attacks_canvas.yview_scroll(1, "pages")
+        try:
+            attacks_canvas.bind_all("<Up>", _on_key)
+            attacks_canvas.bind_all("<Down>", _on_key)
+            attacks_canvas.bind_all("<Prior>", _on_key)
+            attacks_canvas.bind_all("<Next>", _on_key)
+        except Exception:
+            pass
+        
+        attacks_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        attacks_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         attack_buttons = [
             ("⌨️ HID Injection", "Bluetooth keyboard/mouse emulation", self.bt_hid_injection),
@@ -4121,7 +4400,7 @@ REM Access at http://4.3.2.1/evilportal
         ]
         
         for name, desc, cmd in attack_buttons:
-            btn_container = tk.Frame(attacks_frame, style="Card.TFrame", padding=8)
+            btn_container = tk.Frame(attacks_inner, style="Card.TFrame", padding=8)
             btn_container.pack(fill=tk.X, pady=3)
             
             tk.Label(btn_container, text=name, font=("Arial", 9, "bold")).pack(anchor=tk.W)
@@ -5105,8 +5384,12 @@ eval "$(echo '{encoded}' | base64 -d)"
         se_frame = tk.Frame(self.notebook, padding=15)
         self.notebook.add(se_frame, text="🎭 Social Engineering")
         
+        # Make SE content scrollable
+        se_scroll_container, _, se_inner = self._make_scrollable(se_frame)
+        se_scroll_container.pack(fill=tk.BOTH, expand=True)
+        
         # Top section: Campaign type selection
-        campaign_frame = tk.LabelFrame(se_frame, text="Campaign Type", padding=10)
+        campaign_frame = tk.LabelFrame(se_inner, text="Campaign Type", padding=10)
         campaign_frame.pack(fill=tk.X, pady=(0, 10))
         
         self.se_campaign_type = tk.StringVar(value="phishing")
@@ -5128,7 +5411,7 @@ eval "$(echo '{encoded}' | base64 -d)"
             tk.Label(rb_frame, text=desc, font=("Arial", 8), foreground="#888888").pack(anchor=tk.W)
         
         # Main split panel
-        main_split = tk.Frame(se_frame)
+        main_split = tk.Frame(se_inner)
         main_split.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
         # Left panel: Configuration
@@ -5263,7 +5546,7 @@ Security Team"""
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Bottom: Tools & output
-        tools_frame = tk.Frame(se_frame)
+        tools_frame = tk.Frame(se_inner)
         tools_frame.pack(fill=tk.X, pady=(0, 10))
         
         tk.Label(tools_frame, text="Quick Tools:", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=(0, 10))
@@ -5275,7 +5558,7 @@ Security Team"""
         tk.Button(tools_frame, text="🎭 Pretext Generator", command=self.open_pretext_generator).pack(side=tk.LEFT, padx=2)
         
         # Output console
-        console_frame = tk.LabelFrame(se_frame, text="Campaign Log", padding=10)
+        console_frame = tk.LabelFrame(se_inner, text="Campaign Log", padding=10)
         console_frame.pack(fill=tk.BOTH, expand=True)
         
         self.se_console = scrolledtext.ScrolledText(console_frame, height=6, bg="#0a0a0a", fg="#00ff00",
@@ -5470,9 +5753,10 @@ if __name__ == '__main__':
         # Start server in background
         try:
             self.se_server_process = subprocess.Popen(
-                ['python3', 'phishing_server.py'],
+                [sys.executable, 'phishing_server.py'],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.STDOUT,
+                text=True
             )
             
             self.se_server_running = True
@@ -6922,8 +7206,58 @@ echo "Password: $PASS"
         # Make dashboard the first tab
         self.notebook.insert(0, dash_frame, text="📊 Dashboard")
         
-        # Header with title and status
-        header_frame = tk.Frame(dash_frame, style="Card.TFrame", padding=15)
+        # Scrollable content area for the dashboard (so bottom buttons are always reachable)
+        scroll_container = tk.Frame(dash_frame)
+        scroll_container.pack(fill=tk.BOTH, expand=True)
+        
+        dash_canvas = tkcore.Canvas(scroll_container, highlightthickness=0)
+        dash_scrollbar = tk.Scrollbar(scroll_container, orient=tk.VERTICAL, command=dash_canvas.yview)
+        dash_inner = tk.Frame(dash_canvas)
+        
+        dash_inner.bind(
+            "<Configure>",
+            lambda e: dash_canvas.configure(scrollregion=dash_canvas.bbox("all"))
+        )
+        inner_id = dash_canvas.create_window((0, 0), window=dash_inner, anchor="nw")
+        dash_canvas.configure(yscrollcommand=dash_scrollbar.set)
+        
+        def _resize_dash(event):
+            try:
+                dash_canvas.itemconfig(inner_id, width=event.width)
+            except Exception:
+                pass
+        dash_canvas.bind("<Configure>", _resize_dash)
+        
+        dash_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        dash_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Smooth scrolling bindings
+        def _dash_mousewheel(event):
+            try:
+                delta = getattr(event, 'delta', 0)
+                if delta:
+                    steps = int(-delta/120) or (-1 if delta>0 else 1)
+                    dash_canvas.yview_scroll(steps, "units")
+            except Exception:
+                pass
+        def _dash_linux_scroll(event):
+            try:
+                if event.num == 4:
+                    dash_canvas.yview_scroll(-3, "units")
+                elif event.num == 5:
+                    dash_canvas.yview_scroll(3, "units")
+            except Exception:
+                pass
+        for w in (dash_canvas, dash_inner, scroll_container):
+            try:
+                w.bind("<MouseWheel>", _dash_mousewheel)
+                w.bind("<Button-4>", _dash_linux_scroll)
+                w.bind("<Button-5>", _dash_linux_scroll)
+            except Exception:
+                pass
+        
+        # Build dashboard content inside dash_inner
+        header_frame = tk.Frame(dash_inner, style="Card.TFrame", padding=15)
         header_frame.pack(fill=tk.X, pady=(0, 15))
         
         tk.Label(header_frame, text="USB Army Knife - Command Center", 
@@ -6932,7 +7266,7 @@ echo "Password: $PASS"
                 font=("Arial", 10), foreground="#888888").pack(pady=(5, 0))
         
         # Quick stats cards
-        stats_frame = tk.Frame(dash_frame)
+        stats_frame = tk.Frame(dash_inner)
         stats_frame.pack(fill=tk.X, pady=(0, 15))
         
         stats = [
@@ -6952,7 +7286,7 @@ echo "Password: $PASS"
             tk.Label(card, text=subtitle, font=("Arial", 8), foreground="#888888").pack()
         
         # Main content - split into left and right
-        main_content = tk.Frame(dash_frame)
+        main_content = tk.Frame(dash_inner)
         main_content.pack(fill=tk.BOTH, expand=True)
         
         # Left panel - Quick actions
@@ -7066,8 +7400,8 @@ Hostname: {platform.node()}
         for rec in recommendations:
             tk.Label(rec_frame, text=rec, font=("Arial", 8), foreground="#888888").pack(anchor=tk.W, pady=2)
         
-        # Bottom action bar
-        action_bar = tk.Frame(dash_frame)
+        # Bottom action bar (inside scrollable area to remain reachable via scroll)
+        action_bar = tk.Frame(dash_inner)
         action_bar.pack(fill=tk.X, pady=(15, 0))
         
         tk.Button(action_bar, text="💾 Export Report", command=self.export_dashboard_report).pack(side=tk.LEFT, padx=5)

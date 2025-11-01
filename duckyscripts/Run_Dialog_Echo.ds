@@ -1,0 +1,10 @@
+REM Description: Run dialog and echo message
+
+GUI r
+
+DELAY 300
+
+STRING cmd /c echo 
+
+ENTER
+

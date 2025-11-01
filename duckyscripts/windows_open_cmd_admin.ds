@@ -1,0 +1,5 @@
+REM Description: Launch elevated CMD via PowerShell
+GUI r
+DELAY 300
+STRING powershell -Command Start-Process cmd -Verb runAs
+ENTER

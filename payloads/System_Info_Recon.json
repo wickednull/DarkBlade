@@ -1,0 +1,7 @@
+{
+  "name": "System Info Recon",
+  "category": "Recon",
+  "os": "Windows",
+  "description": "Collect system information",
+  "script": "REM System Info Collection\nGUI r\nDELAY 500\nSTRING cmd /c systeminfo > %temp%\\\\sysinfo.txt\nENTER\n"
+}

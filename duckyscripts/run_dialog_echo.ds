@@ -1,0 +1,5 @@
+REM Description: Open Run dialog and echo a message
+GUI r
+DELAY 300
+STRING cmd /c echo USBArmyKnife ready!
+ENTER
