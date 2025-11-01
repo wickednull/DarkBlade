@@ -49,3 +49,6 @@ Thumbs.db
 
 # Ignore agent.img
 agent.img
+
+# Ignore user profiles
+profiles/
