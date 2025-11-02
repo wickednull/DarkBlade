@@ -104,6 +104,7 @@ pip install -r requirements.txt
 
 # Run the installer
 python installer_gui.py
+
 # For smaller screens i.e HackberryPi/Uconsole
 
 python smallgui.py
