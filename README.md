@@ -145,20 +145,7 @@ Enterprise-grade command and control with 12 advanced features:
 - Data export (CSV/JSON)
 - Extensible plugin system
 
-**Start Server:**
-```bash
-# Basic HTTP
-python c2_server_enhanced.py --host 0.0.0.0 --port 8443
 
-# With SSL/TLS
-python c2_server_enhanced.py --ssl --port 443
-
-# With Ngrok tunnel
-python c2_server_enhanced.py --ngrok --ngrok-token YOUR_TOKEN
-
-# Full enterprise mode
-python c2_server_enhanced.py --ssl --ngrok --ngrok-token YOUR_TOKEN
-```
 
 #### 📝 DuckyScript Editor
 Advanced payload development with:
