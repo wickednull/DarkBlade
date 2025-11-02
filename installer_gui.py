@@ -34,9 +34,6 @@ import pickle
 
 from c2_server import duckyscript_converter
 
-# Ensure tkinter geometry/state constants are available on ttkbootstrap alias `tk`
-# Google Gemini edits changed imports to `import ttkbootstrap as tk`, but ttkbootstrap
-# doesn't export tkinter constants like X, BOTH, LEFT, etc. This shim maps them over.
 try:
     _TK_CONSTS = (
         "X","Y","BOTH","LEFT","RIGHT","TOP","BOTTOM",
