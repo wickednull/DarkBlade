@@ -15,11 +15,18 @@ venv/
 # Logs
 *.log
 logs/
+audit.log
+c2_server.log
+api_requests.log
 
-# Databases
+# Databases / keys / settings
 *.db
 *.sqlite
 *.sqlite3
+*-wal
+*-shm
+settings.json
+encryption_key.bin
 
 # Backup files
 *.backup_*
@@ -46,9 +53,16 @@ Thumbs.db
 /USBArmyKnife/test/
 /USBArmyKnife/tools/
 /USBArmyKnife/ui/
+USBArmyKnife/platformio_override.ini
 
 # Ignore agent.img
 agent.img
+
+# Next/Node (built SPA is deployed separately)
+darksecframework/
+
+# Deployed web UI build (include in repo so it works without Node)
+# c2_server/webui/
 
 # Ignore user profiles
 profiles/

