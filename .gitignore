@@ -66,3 +66,8 @@ darksecframework/
 
 # Ignore user profiles
 profiles/
+
+# Ensure required directories are included even if ignored above
+!c2_runtime/
+!c2_server/webui/_next/
+!darksecframework/
