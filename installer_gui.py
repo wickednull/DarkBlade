@@ -361,6 +361,8 @@ class USBArmyKnifeInstaller(tk.Window):
             self.agent_console_text.insert(tk.END, " - payloads/Windows_Agent_Dropper.json\n")
             self.agent_console_text.insert(tk.END, " - payloads/Linux_Agent_Dropper.json\n")
             self.agent_console_text.insert(tk.END, " - payloads/macOS_Agent_Dropper.json\n")
+            self.agent_console_text.insert(tk.END, " - payloads/Windows_Agent_Dropper_ScheduledTask.json\n")
+            self.agent_console_text.insert(tk.END, " - payloads/Windows_Agent_Dropper_SignedPS.json\n")
             # Refresh Library if present
             try:
                 self.filter_payloads()
