@@ -4387,11 +4387,60 @@ ENTER
         attacks_frame = tk.LabelFrame(wifi_frame, text="Attack Types", padding=15)
         attacks_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
-        # Left column: Quick attacks
+        # Left column: Quick attacks (scrollable)
         left_col = tk.Frame(attacks_frame)
         left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
         
         tk.Label(left_col, text="Quick Attacks", font=("Arial", 11, "bold")).pack(pady=(0, 10))
+        
+        # Scrollable quick attacks list
+        quick_canvas = tkcore.Canvas(left_col, highlightthickness=0)
+        quick_scrollbar = tk.Scrollbar(left_col, orient=tk.VERTICAL, command=quick_canvas.yview)
+        quick_inner = tk.Frame(quick_canvas)
+        
+        def _quick_cfg(e):
+            try:
+                quick_canvas.configure(scrollregion=quick_canvas.bbox("all"))
+            except Exception:
+                pass
+        quick_inner.bind("<Configure>", _quick_cfg)
+        quick_win = quick_canvas.create_window((0, 0), window=quick_inner, anchor="nw")
+        
+        def _quick_resize(e):
+            try:
+                quick_canvas.itemconfig(quick_win, width=e.width)
+            except Exception:
+                pass
+        quick_canvas.bind("<Configure>", _quick_resize)
+        quick_canvas.configure(yscrollcommand=quick_scrollbar.set)
+        
+        # Mouse/trackpad scrolling
+        def _wheel(event):
+            try:
+                delta = getattr(event, 'delta', 0)
+                if delta:
+                    steps = int(-delta/120) or (-1 if delta>0 else 1)
+                    quick_canvas.yview_scroll(steps, 'units')
+            except Exception:
+                pass
+        def _linux_scroll(event):
+            try:
+                if event.num == 4:
+                    quick_canvas.yview_scroll(-3, 'units')
+                elif event.num == 5:
+                    quick_canvas.yview_scroll(3, 'units')
+            except Exception:
+                pass
+        for w in (quick_canvas, quick_inner, left_col):
+            try:
+                w.bind('<MouseWheel>', _wheel)
+                w.bind('<Button-4>', _linux_scroll)
+                w.bind('<Button-5>', _linux_scroll)
+            except Exception:
+                pass
+        
+        quick_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        quick_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         quick_attacks = [
             ("💥 Deauth Attack", "Disconnect devices from AP", self.launch_deauth),
@@ -4402,7 +4451,7 @@ ENTER
         ]
         
         for name, desc, cmd in quick_attacks:
-            btn_frame = tk.Frame(left_col, style="Card.TFrame", padding=10)
+            btn_frame = tk.Frame(quick_inner, style="Card.TFrame", padding=10)
             btn_frame.pack(fill=tk.X, pady=5)
             
             tk.Label(btn_frame, text=name, font=("Arial", 10, "bold")).pack(anchor=tk.W)
