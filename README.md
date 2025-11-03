@@ -63,7 +63,7 @@ NightBlade is your cockpit: build DuckyScripts, flash devices, deploy agents via
 | ✅ **Is** | ❌ **Is Not** |
 |-----------|---------------|
 | A controller and toolkit for authorized security testing and research | A magical "USB autorun" bypass—modern Windows disables USB AutoRun |
-| Enterprise-grade C2 with HID delivery | Delivery is via HID keystrokes (DuckyScript) while the session is unlocked |
+| Enterprise-grade C2 with HID delivery Delivery is via HID keystrokes (DuckyScript) while the session is unlocked|  |
 
 ---
 
