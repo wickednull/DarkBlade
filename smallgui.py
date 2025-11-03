@@ -2,6 +2,22 @@ import tkinter as tk
 import tkinter.font as tkfont
 import ttkbootstrap as tb
 
+# Ensure ttkbootstrap exposes tkinter geometry/state constants used here
+try:
+    _TK_CONSTS = (
+        "X","Y","BOTH","LEFT","RIGHT","TOP","BOTTOM",
+        "N","S","E","W","NW","NE","SW","SE","NS","EW","NSEW",
+        "DISABLED","NORMAL","END","WORD","NONE","VERTICAL","HORIZONTAL",
+        "SUNKEN","RAISED","FLAT","GROOVE","RIDGE","SOLID","CENTER","ACTIVE","INSERT"
+    )
+    for _name in _TK_CONSTS:
+        if hasattr(tk, _name) and not hasattr(tb, _name):
+            setattr(tb, _name, getattr(tk, _name))
+    if hasattr(tb, 'Labelframe') and not hasattr(tb, 'LabelFrame'):
+        tb.LabelFrame = tb.Labelframe
+except Exception:
+    pass
+
 # Import the full-featured GUI without removing anything
 from installer_gui import USBArmyKnifeInstaller
 
