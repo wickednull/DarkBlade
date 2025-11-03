@@ -358,6 +358,7 @@ class USBArmyKnifeInstaller(tk.Window):
             base = os.path.abspath(os.path.join(os.path.dirname(__file__), 'payloads'))
             # Nothing to copy from base; ensure our new JSONs exist already
             self.agent_console_text.insert(tk.END, "Agent dropper payloads available:\n")
+            self.agent_console_text.insert(tk.END, " - payloads/Windows_Agent_Dropper.json\n")
             self.agent_console_text.insert(tk.END, " - payloads/Linux_Agent_Dropper.json\n")
             self.agent_console_text.insert(tk.END, " - payloads/macOS_Agent_Dropper.json\n")
             # Refresh Library if present
