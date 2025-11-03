@@ -296,6 +296,79 @@ class USBArmyKnifeInstaller(tk.Window):
         self.efuse_console_text = tk.Text(console_frame, height=10)
         self.efuse_console_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
+    def _write_file(self, path: str, data: bytes):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'wb') as f:
+            f.write(data)
+
+    def export_linux_agent_pack(self):
+        try:
+            outdir = filedialog.askdirectory(title="Select output directory for Linux agent pack")
+            if not outdir:
+                return
+            # Stage files from agents/ into output
+            base = os.path.abspath(os.path.join(os.path.dirname(__file__), 'agents'))
+            # Agent binary/script name expected: db-agent
+            src_agent = os.path.join(base, 'db_agent.py')
+            agent_bin = os.path.join(outdir, 'db-agent')
+            with open(src_agent, 'rb') as f:
+                content = f.read()
+            self._write_file(agent_bin, b"#!/usr/bin/env python3\n" + content)
+            os.chmod(agent_bin, 0o755)
+            # Service
+            with open(os.path.join(base, 'linux', 'db-agent.service'), 'rb') as f:
+                self._write_file(os.path.join(outdir, 'db-agent.service'), f.read())
+            # Installer
+            with open(os.path.join(base, 'linux', 'install.sh'), 'rb') as f:
+                inst = os.path.join(outdir, 'install.sh')
+                self._write_file(inst, f.read())
+                os.chmod(inst, 0o755)
+            self.agent_console_text.insert(tk.END, f"Exported Linux agent pack to {outdir}\n")
+        except Exception as e:
+            messagebox.showerror("Export Linux Agent", str(e))
+
+    def export_macos_agent_pack(self):
+        try:
+            outdir = filedialog.askdirectory(title="Select output directory for macOS agent pack")
+            if not outdir:
+                return
+            base = os.path.abspath(os.path.join(os.path.dirname(__file__), 'agents'))
+            src_agent = os.path.join(base, 'db_agent.py')
+            agent_bin = os.path.join(outdir, 'db-agent')
+            with open(src_agent, 'rb') as f:
+                content = f.read()
+            self._write_file(agent_bin, b"#!/usr/bin/env python3\n" + content)
+            os.chmod(agent_bin, 0o755)
+            # LaunchAgent plist
+            with open(os.path.join(base, 'macos', 'com.darkblade.agent.plist'), 'rb') as f:
+                self._write_file(os.path.join(outdir, 'com.darkblade.agent.plist'), f.read())
+            # Installer
+            with open(os.path.join(base, 'macos', 'install_mac.sh'), 'rb') as f:
+                inst = os.path.join(outdir, 'install_mac.sh')
+                self._write_file(inst, f.read())
+                os.chmod(inst, 0o755)
+            self.agent_console_text.insert(tk.END, f"Exported macOS agent pack to {outdir}\n")
+        except Exception as e:
+            messagebox.showerror("Export macOS Agent", str(e))
+
+    def generate_agent_dropper_payloads(self):
+        try:
+            # Copy payload templates into payloads directory if not present
+            os.makedirs('payloads', exist_ok=True)
+            base = os.path.abspath(os.path.join(os.path.dirname(__file__), 'payloads'))
+            # Nothing to copy from base; ensure our new JSONs exist already
+            self.agent_console_text.insert(tk.END, "Agent dropper payloads available:\n")
+            self.agent_console_text.insert(tk.END, " - payloads/Linux_Agent_Dropper.json\n")
+            self.agent_console_text.insert(tk.END, " - payloads/macOS_Agent_Dropper.json\n")
+            # Refresh Library if present
+            try:
+                self.filter_payloads()
+            except Exception:
+                pass
+            messagebox.showinfo("Payloads", "Linux/macOS Agent dropper payloads are available in the Payload Library.")
+        except Exception as e:
+            messagebox.showerror("Agent Payloads", str(e))
+
     def create_agent_tab(self):
         agent_frame = tk.Frame(self.notebook, padding=15)
         self.notebook.add(agent_frame, text="🎯 Agent")
@@ -364,6 +437,14 @@ class USBArmyKnifeInstaller(tk.Window):
 
         reset_btn = tk.Button(deploy_frame, text="🔄 Create RESET flag (optional)", command=self.create_reset_flag)
         reset_btn.pack(fill=tk.X)
+
+        # Cross-Platform Agent (Linux/macOS)
+        xplat = tk.LabelFrame(agent_frame, text="🐧🍎 Cross-Platform Agent (Linux/macOS)", padding=15)
+        xplat.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Button(xplat, text="📦 Export Linux Agent Pack", command=self.export_linux_agent_pack).pack(fill=tk.X, pady=3)
+        tk.Button(xplat, text="📦 Export macOS Agent Pack", command=self.export_macos_agent_pack).pack(fill=tk.X, pady=3)
+        tk.Button(xplat, text="📝 Generate Agent Dropper Payloads", command=self.generate_agent_dropper_payloads).pack(fill=tk.X, pady=3)
 
         # Output console
         console_frame = tk.LabelFrame(agent_frame, text="📄 Output Log", padding=10)
